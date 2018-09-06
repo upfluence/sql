@@ -25,7 +25,7 @@ func stripReturningFields(vs []interface{}) []interface{} {
 	var res []interface{}
 
 	for _, v := range vs {
-		if _, ok := v.(*sql.Returning); ok {
+		if _, ok := v.(*sql.Returning); !ok {
 			res = append(res, v)
 		}
 	}
