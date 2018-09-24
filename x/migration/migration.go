@@ -2,7 +2,10 @@ package migration
 
 import (
 	"context"
+	stdsql "database/sql"
+	"io"
 	"io/ioutil"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/upfluence/pkg/multierror"
@@ -10,7 +13,8 @@ import (
 )
 
 type Migrator interface {
-	Migrate(context.Context) error
+	Up(context.Context) error
+	Down(context.Context) error
 }
 
 type migrator struct {
@@ -32,78 +36,175 @@ func NewMigrator(db sql.DB, s Source, opts ...Option) Migrator {
 	return &migrator{DB: db, source: s, d: fetchDriver(db.Driver()), opts: &o}
 }
 
-func (m *migrator) Migrate(ctx context.Context) error {
+func (m *migrator) Down(ctx context.Context) error {
 	if _, err := m.Exec(ctx, m.opts.createTableMigrationStmt()); err != nil {
 		return errors.Wrap(err, "cant build migration table")
 	}
 
 	for {
-		done, err := m.migrateOne(ctx)
-		if err != nil {
-			return errors.Wrap(err, "migration failed")
-		}
+		done, err := m.downOne(ctx)
 
-		if done {
-			return nil
+		if done || err != nil {
+			return errors.Wrap(err, "migration failed")
 		}
 	}
 }
 
-func (m *migrator) migrateOne(ctx context.Context) (bool, error) {
+func (m *migrator) Up(ctx context.Context) error {
+	if _, err := m.Exec(ctx, m.opts.createTableMigrationStmt()); err != nil {
+		return errors.Wrap(err, "cant build migration table")
+	}
+
+	for {
+		done, err := m.upOne(ctx)
+
+		if done || err != nil {
+			return errors.Wrap(err, "migration failed")
+		}
+	}
+}
+
+func (m *migrator) downOne(ctx context.Context) (bool, error) {
+	var done bool
+
+	err := m.executeTx(ctx, func(q sql.Queryer) error {
+		mi, err := m.previousMigration(ctx, q)
+
+		if mi == nil || err != nil {
+			done = (mi == nil)
+			return err
+		}
+
+		r, err := mi.Down(m.d)
+
+		if err != nil {
+			return errors.Wrapf(err, "cant open UP migration file for %d", mi.ID())
+		}
+
+		if errM := executeMigration(ctx, r, q); errM != nil {
+			return errors.Wrapf(errM, "migration %d", mi.ID())
+		}
+
+		_, err = q.Exec(ctx, m.opts.deleteMigrationStmt(), mi.ID())
+
+		return errors.Wrapf(err, "cant add migration to the table %d", mi.ID())
+	})
+
+	return done, err
+}
+
+func (m *migrator) upOne(ctx context.Context) (bool, error) {
+	var done bool
+
+	err := m.executeTx(ctx, func(q sql.Queryer) error {
+		mi, err := m.nextMigration(ctx, q)
+
+		if mi == nil || err != nil {
+			done = (mi == nil)
+			return err
+		}
+
+		r, err := mi.Up(m.d)
+
+		if err != nil {
+			return errors.Wrapf(err, "cant open UP migration file for %d", mi.ID())
+		}
+
+		if errM := executeMigration(ctx, r, q); errM != nil {
+			return errors.Wrapf(errM, "migration %d", mi.ID())
+		}
+
+		_, err = q.Exec(ctx, m.opts.addMigrationStmt(), mi.ID(), time.Now())
+
+		return errors.Wrapf(err, "cant add migration to the table %d", mi.ID())
+	})
+
+	return done, err
+}
+
+func (m *migrator) executeTx(ctx context.Context, fn func(sql.Queryer) error) error {
 	tx, err := m.BeginTx(ctx)
 
 	if err != nil {
-		return false, errors.Wrap(err, "can not open tx")
+		return errors.Wrap(err, "can not open tx")
 	}
 
-	var (
-		num uint
+	if err := fn(tx); err != nil {
+		return multierror.Combine(err, errors.Wrap(tx.Rollback(), "rollback"))
+	}
 
-		wrapErr = func(err error, msg string, args ...interface{}) error {
-			return multierror.Combine(
-				errors.Wrapf(err, msg, args...),
-				errors.Wrap(tx.Rollback(), "rollback"),
-			)
-		}
+	return errors.Wrap(tx.Commit(), "cant commit")
+}
+
+func (m *migrator) previousMigration(ctx context.Context, q sql.Queryer) (Migration, error) {
+	var (
+		num stdsql.NullInt64
+		mi  Migration
+		err error
 	)
 
-	if err := tx.QueryRow(ctx, m.opts.lastMigrationStmt()).Scan(&num); err != nil {
-		return false, wrapErr(err, "fetch last migration")
+	if err := q.QueryRow(ctx, m.opts.lastMigrationStmt()).Scan(&num); err != nil {
+		return nil, errors.Wrap(err, "fetch last migration")
 	}
 
-	ok, mID, err := m.source.Next(ctx, num)
+	if num.Valid {
+		ok, mID, errPrev := m.source.Prev(ctx, uint(num.Int64))
 
-	if err != nil {
-		return false, wrapErr(err, "cant fetch migration %d", mID)
+		if errPrev != nil {
+			return nil, errors.Wrapf(errPrev, "next migration from %d", num.Int64)
+		}
+
+		if !ok {
+			return nil, nil
+		}
+
+		mi, err = m.source.Get(ctx, mID)
+	} else {
+		return nil, nil
 	}
 
-	if !ok {
-		return true, nil
+	return mi, errors.Wrapf(err, "fetching %d", mi.ID())
+}
+
+func (m *migrator) nextMigration(ctx context.Context, q sql.Queryer) (Migration, error) {
+	var (
+		num stdsql.NullInt64
+		mi  Migration
+		err error
+	)
+
+	if err := q.QueryRow(ctx, m.opts.lastMigrationStmt()).Scan(&num); err != nil {
+		return nil, errors.Wrap(err, "fetch last migration")
 	}
 
-	mi, err := m.source.Get(ctx, mID)
+	if num.Valid {
+		ok, mID, errNext := m.source.Next(ctx, uint(num.Int64))
 
-	if err != nil {
-		return false, wrapErr(err, "cant fetch migration %d", mID)
+		if errNext != nil {
+			return nil, errors.Wrapf(errNext, "next migration from %d", num.Int64)
+		}
+
+		if !ok {
+			return nil, nil
+		}
+
+		mi, err = m.source.Get(ctx, mID)
+	} else {
+		mi, err = m.source.First(ctx)
 	}
 
-	r, err := mi.Up(m.d)
+	return mi, errors.Wrapf(err, "fetching %d", mi.ID())
+}
 
-	if err != nil {
-		return false, wrapErr(err, "cant open UP migration file for %d", mi.ID)
-	}
-
+func executeMigration(ctx context.Context, r io.ReadCloser, q sql.Queryer) error {
 	buf, err := ioutil.ReadAll(r)
 
 	if err != nil {
-		return false, wrapErr(err, "cant read migration %d", mi.ID)
+		return errors.Wrap(err, "cant read migration")
 	}
 
-	r.Close()
+	defer r.Close()
 
-	if _, err := tx.Exec(ctx, string(buf)); err != nil {
-		return false, wrapErr(err, "cant execute migration %d", mi.ID)
-	}
-
-	return false, errors.Wrap(tx.Commit(), "cant commit")
+	_, err = q.Exec(ctx, string(buf))
+	return errors.Wrap(err, "cant execute migration")
 }

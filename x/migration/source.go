@@ -47,7 +47,7 @@ func (m *migration) ID() uint { return m.id }
 func (m *migration) Up(d Driver) (io.ReadCloser, error) {
 	for _, ext := range d.Extensions() {
 		if fname, ok := m.ups[ext]; ok {
-			m.fetcher(fname)
+			return m.fetcher(fname)
 		}
 	}
 
@@ -57,7 +57,7 @@ func (m *migration) Up(d Driver) (io.ReadCloser, error) {
 func (m *migration) Down(d Driver) (io.ReadCloser, error) {
 	for _, ext := range d.Extensions() {
 		if fname, ok := m.downs[ext]; ok {
-			m.fetcher(fname)
+			return m.fetcher(fname)
 		}
 	}
 
@@ -181,7 +181,13 @@ func NewStaticSource(fs []string, fn StaticFetcher, logger log.Logger) Source {
 		m, ok := migrationMap[id]
 
 		if !ok {
-			m = &migration{id: id, name: name, fetcher: wrappedFetcher}
+			m = &migration{
+				id:      id,
+				name:    name,
+				fetcher: wrappedFetcher,
+				ups:     make(map[string]string),
+				downs:   make(map[string]string),
+			}
 		} else if m.name != name {
 			logger.Warningf("Name mismatch between migration %q, skipping it", f)
 			continue

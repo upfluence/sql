@@ -6,10 +6,12 @@ const (
 	createTableMigrationStmtTmpl = `
 create table if not exists %s (
 	num integer not null,
-	created_at timestamp not null,
+	created_at timestamp not null
 )
 	`
-	lastMigrationStmtTmpl = `select max(num) from %s`
+	lastMigrationStmtTmpl   = `select max(num) from %s`
+	addMigrationStmtTmpl    = `INSERT INTO "%s" (num, created_at) VALUES ($1, $2)`
+	deleteMigrationStmtTmpl = `DELETE FROM "%s" WHERE num = $1`
 )
 
 var defaultOptions = &options{migrationTable: "migrations"}
@@ -30,4 +32,12 @@ func (o *options) createTableMigrationStmt() string {
 
 func (o *options) lastMigrationStmt() string {
 	return fmt.Sprintf(lastMigrationStmtTmpl, o.migrationTable)
+}
+
+func (o *options) addMigrationStmt() string {
+	return fmt.Sprintf(addMigrationStmtTmpl, o.migrationTable)
+}
+
+func (o *options) deleteMigrationStmt() string {
+	return fmt.Sprintf(deleteMigrationStmtTmpl, o.migrationTable)
 }
