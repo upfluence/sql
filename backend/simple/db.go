@@ -7,6 +7,13 @@ import (
 	"github.com/upfluence/sql"
 )
 
+type db struct {
+	*queryer
+
+	db     *stdsql.DB
+	driver string
+}
+
 func NewDB(driver, uri string) (sql.DB, error) {
 	var plainDB, err = stdsql.Open(driver, uri)
 
@@ -14,33 +21,26 @@ func NewDB(driver, uri string) (sql.DB, error) {
 		return nil, err
 	}
 
-	return &db{plainDB}, nil
+	return &db{queryer: &queryer{plainDB}, db: plainDB, driver: driver}, nil
 }
 
-type db struct {
-	*stdsql.DB
+type tx struct {
+	*queryer
+
+	tx *stdsql.Tx
 }
 
-func stripReturningFields(vs []interface{}) []interface{} {
-	var res []interface{}
+func (t *tx) Commit() error   { return t.tx.Commit() }
+func (t *tx) Rollback() error { return t.tx.Rollback() }
 
-	for _, v := range vs {
-		if _, ok := v.(*sql.Returning); !ok {
-			res = append(res, v)
-		}
+func (d *db) Driver() string { return d.driver }
+
+func (d *db) BeginTx(ctx context.Context) (sql.Tx, error) {
+	t, err := d.db.BeginTx(ctx, nil)
+
+	if err != nil {
+		return nil, err
 	}
 
-	return res
-}
-
-func (d *db) Exec(ctx context.Context, q string, vs ...interface{}) (sql.Result, error) {
-	return d.ExecContext(ctx, q, stripReturningFields(vs)...)
-}
-
-func (d *db) QueryRow(ctx context.Context, q string, vs ...interface{}) sql.Scanner {
-	return d.QueryRowContext(ctx, q, vs...)
-}
-
-func (d *db) Query(ctx context.Context, q string, vs ...interface{}) (sql.Cursor, error) {
-	return d.QueryContext(ctx, q, vs...)
+	return &tx{queryer: &queryer{t}, tx: t}, nil
 }

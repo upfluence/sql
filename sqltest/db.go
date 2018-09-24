@@ -22,7 +22,13 @@ type StaticDB struct {
 	QueryQueries []Query
 	QueryScanner sql.Cursor
 	QueryErr     error
+
+	Tx    sql.Tx
+	TxErr error
 }
+
+func (db *StaticDB) Driver() string                          { return "sqltest" }
+func (db *StaticDB) BeginTx(context.Context) (sql.Tx, error) { return db.Tx, db.TxErr }
 
 func (db *StaticDB) Exec(_ context.Context, q string, args ...interface{}) (sql.Result, error) {
 	db.ExecQueries = append(db.ExecQueries, Query{q, args})

@@ -28,7 +28,7 @@ func Test_db_pickDB(t *testing.T) {
 			name:  "select",
 			query: "foo",
 			db: &db{
-				master: &db0,
+				DB:     &db0,
 				slave:  &db1,
 				parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtSelect}),
 			},
@@ -39,7 +39,7 @@ func Test_db_pickDB(t *testing.T) {
 			name:  "update",
 			query: "foo",
 			db: &db{
-				master: &db0,
+				DB:     &db0,
 				slave:  &db1,
 				parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtUpdate}),
 			},
