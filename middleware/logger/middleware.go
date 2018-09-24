@@ -17,6 +17,8 @@ const (
 	Exec     OpType = "Exec"
 	QueryRow OpType = "QueryRow"
 	Query    OpType = "Query"
+	Commit   OpType = "Commit"
+	Rollback OpType = "Rollback"
 )
 
 type Logger interface {
@@ -70,38 +72,76 @@ type factory struct {
 }
 
 func (f *factory) Wrap(d sql.DB) sql.DB {
-	return &db{DB: d, l: f.l}
+	return &db{queryer: &queryer{Queryer: d}, db: d}
 }
 
 type db struct {
-	sql.DB
+	*queryer
+
+	db sql.DB
+}
+
+func (d *db) BeginTx(ctx context.Context) (sql.Tx, error) {
+	var t, err = d.db.BeginTx(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &tx{queryer: &queryer{Queryer: t, l: d.queryer.l}, tx: t}, nil
+}
+
+type tx struct {
+	*queryer
+
+	tx sql.Tx
+}
+
+func (t *tx) Commit() error {
+	var t0 = time.Now()
+
+	defer t.queryer.logRequest(Commit, t0, "COMMIT", nil)
+
+	return t.tx.Commit()
+}
+
+func (t *tx) Rollback() error {
+	var t0 = time.Now()
+
+	defer t.queryer.logRequest(Rollback, t0, "Rollback", nil)
+
+	return t.tx.Rollback()
+}
+
+type queryer struct {
+	sql.Queryer
 	l Logger
 }
 
-func (d *db) logRequest(t OpType, t0 time.Time, q string, vs []interface{}) {
-	d.l.Log(t, q, vs, time.Since(t0))
+func (q *queryer) logRequest(t OpType, t0 time.Time, qry string, vs []interface{}) {
+	q.l.Log(t, qry, vs, time.Since(t0))
 }
 
-func (d *db) Exec(ctx context.Context, q string, vs ...interface{}) (sql.Result, error) {
+func (q *queryer) Exec(ctx context.Context, qry string, vs ...interface{}) (sql.Result, error) {
 	var t0 = time.Now()
 
-	defer d.logRequest(Exec, t0, q, vs)
+	defer q.logRequest(Exec, t0, qry, vs)
 
-	return d.DB.Exec(ctx, q, vs...)
+	return q.Queryer.Exec(ctx, qry, vs...)
 }
 
-func (d *db) QueryRow(ctx context.Context, q string, vs ...interface{}) sql.Scanner {
+func (q *queryer) QueryRow(ctx context.Context, qry string, vs ...interface{}) sql.Scanner {
 	var t0 = time.Now()
 
-	defer d.logRequest(QueryRow, t0, q, vs)
+	defer q.logRequest(QueryRow, t0, qry, vs)
 
-	return d.DB.QueryRow(ctx, q, vs...)
+	return q.Queryer.QueryRow(ctx, qry, vs...)
 }
 
-func (d *db) Query(ctx context.Context, q string, vs ...interface{}) (sql.Cursor, error) {
+func (q *queryer) Query(ctx context.Context, qry string, vs ...interface{}) (sql.Cursor, error) {
 	var t0 = time.Now()
 
-	defer d.logRequest(QueryRow, t0, q, vs)
+	defer q.logRequest(QueryRow, t0, qry, vs)
 
-	return d.DB.Query(ctx, q, vs...)
+	return q.Queryer.Query(ctx, qry, vs...)
 }
