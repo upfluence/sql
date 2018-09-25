@@ -72,7 +72,7 @@ type factory struct {
 }
 
 func (f *factory) Wrap(d sql.DB) sql.DB {
-	return &db{queryer: &queryer{Queryer: d}, db: d}
+	return &db{queryer: &queryer{Queryer: d, l: f.l}, db: d}
 }
 
 type db struct {
@@ -80,6 +80,8 @@ type db struct {
 
 	db sql.DB
 }
+
+func (d *db) Driver() string { return d.db.Driver() }
 
 func (d *db) BeginTx(ctx context.Context) (sql.Tx, error) {
 	var t, err = d.db.BeginTx(ctx)
