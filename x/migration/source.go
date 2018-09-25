@@ -123,7 +123,7 @@ func (s *staticSource) Prev(_ context.Context, id uint) (bool, uint, error) {
 		return false, 0, err
 	}
 
-	if len(s.ms) == 0 {
+	if len(s.ms) == 0 || i == 0 {
 		return false, 0, nil
 	}
 

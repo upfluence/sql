@@ -68,7 +68,7 @@ func (m *migrator) downOne(ctx context.Context) (bool, error) {
 	var done bool
 
 	err := m.executeTx(ctx, func(q sql.Queryer) error {
-		mi, err := m.previousMigration(ctx, q)
+		mi, err := m.currentMigration(ctx, q)
 
 		if mi == nil || err != nil {
 			done = (mi == nil)
@@ -136,34 +136,18 @@ func (m *migrator) executeTx(ctx context.Context, fn func(sql.Queryer) error) er
 	return errors.Wrap(tx.Commit(), "cant commit")
 }
 
-func (m *migrator) previousMigration(ctx context.Context, q sql.Queryer) (Migration, error) {
-	var (
-		num stdsql.NullInt64
-		mi  Migration
-		err error
-	)
+func (m *migrator) currentMigration(ctx context.Context, q sql.Queryer) (Migration, error) {
+	var num stdsql.NullInt64
 
 	if err := q.QueryRow(ctx, m.opts.lastMigrationStmt()).Scan(&num); err != nil {
 		return nil, errors.Wrap(err, "fetch last migration")
 	}
 
 	if num.Valid {
-		ok, mID, errPrev := m.source.Prev(ctx, uint(num.Int64))
-
-		if errPrev != nil {
-			return nil, errors.Wrapf(errPrev, "next migration from %d", num.Int64)
-		}
-
-		if !ok {
-			return nil, nil
-		}
-
-		mi, err = m.source.Get(ctx, mID)
-	} else {
-		return nil, nil
+		return m.source.Get(ctx, uint(num.Int64))
 	}
 
-	return mi, errors.Wrapf(err, "fetching %d", mi.ID())
+	return nil, nil
 }
 
 func (m *migrator) nextMigration(ctx context.Context, q sql.Queryer) (Migration, error) {
