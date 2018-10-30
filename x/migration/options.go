@@ -22,8 +22,17 @@ func MigrationTable(tableName string) Option {
 	return func(o *options) { o.migrationTable = tableName }
 }
 
+func AddErrorTransformer(v ErrorTransformer) Option {
+	return func(o *options) { o.transformers = append(o.transformers, v) }
+}
+
 type options struct {
 	migrationTable string
+	transformers   []ErrorTransformer
+}
+
+func (o *options) errorTransformer() ErrorTransformer {
+	return wrapTransformers(o.transformers)
 }
 
 func (o *options) createTableMigrationStmt() string {

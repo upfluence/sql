@@ -21,7 +21,8 @@ type migrator struct {
 	sql.DB
 	d Driver
 
-	source Source
+	source      Source
+	transformer ErrorTransformer
 
 	opts *options
 }
@@ -33,7 +34,13 @@ func NewMigrator(db sql.DB, s Source, opts ...Option) Migrator {
 		opt(&o)
 	}
 
-	return &migrator{DB: db, source: s, d: fetchDriver(db.Driver()), opts: &o}
+	return &migrator{
+		DB:          db,
+		source:      s,
+		d:           fetchDriver(db.Driver()),
+		transformer: o.errorTransformer(),
+		opts:        &o,
+	}
 }
 
 func (m *migrator) Down(ctx context.Context) error {
@@ -81,7 +88,10 @@ func (m *migrator) downOne(ctx context.Context) (bool, error) {
 			return errors.Wrapf(err, "cant open UP migration file for %d", mi.ID())
 		}
 
-		if errM := executeMigration(ctx, r, q); errM != nil {
+		if errM := m.transformer.Transform(
+			mi,
+			executeMigration(ctx, r, q),
+		); errM != nil {
 			return errors.Wrapf(errM, "migration %d", mi.ID())
 		}
 
@@ -110,7 +120,10 @@ func (m *migrator) upOne(ctx context.Context) (bool, error) {
 			return errors.Wrapf(err, "cant open UP migration file for %d", mi.ID())
 		}
 
-		if errM := executeMigration(ctx, r, q); errM != nil {
+		if errM := m.transformer.Transform(
+			mi,
+			executeMigration(ctx, r, q),
+		); errM != nil {
 			return errors.Wrapf(errM, "migration %d", mi.ID())
 		}
 
