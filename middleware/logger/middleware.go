@@ -46,13 +46,15 @@ func (d *dynamicField) GetKey() string   { return d.name }
 func (d *dynamicField) GetValue() string { return fmt.Sprintf("%v", d.value) }
 
 func (l *simplifiedLogger) Log(_ OpType, q string, vs []interface{}, d time.Duration) {
-	var logger = l.logger.WithField(&durationField{d})
+	var fs = make([]record.Field, len(vs)+1)
+
+	fs[0] = &durationField{d}
 
 	for i, v := range vs {
-		logger = logger.WithField(&dynamicField{name: fmt.Sprintf("$%d", i+1), value: v})
+		fs[i+1] = &dynamicField{name: fmt.Sprintf("$%d", i+1), value: v}
 	}
 
-	logger.Log(l.level, q)
+	l.logger.WithFields(fs...).Log(l.level, q)
 }
 
 func NewFactory(l Logger) sql.MiddlewareFactory {
