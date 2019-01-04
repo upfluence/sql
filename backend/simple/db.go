@@ -14,6 +14,10 @@ type db struct {
 	driver string
 }
 
+func FromStdDB(stdDB *stdsql.DB) sql.DB {
+	return &db{queryer: &queryer{stdDB}, db: stdDB}
+}
+
 func NewDB(driver, uri string) (sql.DB, error) {
 	var plainDB, err = stdsql.Open(driver, uri)
 
