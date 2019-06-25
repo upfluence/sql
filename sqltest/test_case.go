@@ -25,7 +25,7 @@ func (tl testLogger) Log(ot logger.OpType, q string, vs []interface{}, d time.Du
 	fmt.Fprintf(&b, "[OpType: %s] [Duration: %s] ", ot, d.String())
 
 	for i, v := range vs {
-		fmt.Fprintf(&b, "[$%d: %v", i, v)
+		fmt.Fprintf(&b, "[$%d: %v] ", i, v)
 	}
 
 	b.WriteString(q)
@@ -42,7 +42,7 @@ func buildPostgres(t testing.TB) (sqlutil.Option, func()) {
 		return nil, nil
 	}
 
-	return sqlutil.WithMiddleware(logger.NewFactory(testLogger{t})), func() {}
+	return sqlutil.WithMaster("postgres", dsn), func() {}
 }
 
 func buildSQLite(t testing.TB) (sqlutil.Option, func()) {
