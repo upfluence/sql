@@ -4,12 +4,12 @@ import (
 	"testing"
 
 	"github.com/upfluence/sql"
-	"github.com/upfluence/sql/sqltest"
+	"github.com/upfluence/sql/backend/static"
 )
 
 func Test_db_nextDB(t *testing.T) {
 	var (
-		db0, db1, db2 sqltest.StaticDB
+		db0, db1, db2 static.DB
 
 		db = NewDB(&db0, &db1, &db2).(*db)
 

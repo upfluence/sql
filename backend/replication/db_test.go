@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/upfluence/sql"
+	"github.com/upfluence/sql/backend/static"
 	"github.com/upfluence/sql/sqlparser"
-	"github.com/upfluence/sql/sqltest"
 )
 
 type mockParser map[string]sqlparser.StmtType
@@ -15,8 +15,8 @@ func (p mockParser) GetStatementType(q string) sqlparser.StmtType {
 	return p[q]
 }
 
-func Test_db_pickDB(t *testing.T) {
-	var db0, db1 sqltest.StaticDB
+func TestPickDB(t *testing.T) {
+	var db0, db1 static.DB
 
 	tests := []struct {
 		name  string
