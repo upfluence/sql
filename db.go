@@ -5,7 +5,18 @@ import (
 	"database/sql"
 )
 
-type Result sql.Result
+type (
+	Result     = sql.Result
+	NullInt64  = sql.NullInt64
+	NullString = sql.NullString
+	NullBool   = sql.NullBool
+)
+
+var (
+	ErrConnDone = sql.ErrConnDone
+	ErrNoRows   = sql.ErrNoRows
+	ErrTxDone   = sql.ErrTxDone
+)
 
 type Scanner interface {
 	Scan(...interface{}) error
