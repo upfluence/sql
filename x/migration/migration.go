@@ -2,7 +2,6 @@ package migration
 
 import (
 	"context"
-	stdsql "database/sql"
 	"io"
 	"io/ioutil"
 	"time"
@@ -15,6 +14,32 @@ import (
 type Migrator interface {
 	Up(context.Context) error
 	Down(context.Context) error
+}
+
+type MultiMigrator []Migrator
+
+func (ms MultiMigrator) Up(ctx context.Context) error {
+	var errs []error
+
+	for _, m := range ms {
+		if err := m.Up(ctx); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return multierror.Wrap(errs)
+}
+
+func (ms MultiMigrator) Down(ctx context.Context) error {
+	var errs []error
+
+	for _, m := range ms {
+		if err := m.Down(ctx); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return multierror.Wrap(errs)
 }
 
 type migrator struct {
@@ -150,7 +175,7 @@ func (m *migrator) executeTx(ctx context.Context, fn func(sql.Queryer) error) er
 }
 
 func (m *migrator) currentMigration(ctx context.Context, q sql.Queryer) (Migration, error) {
-	var num stdsql.NullInt64
+	var num sql.NullInt64
 
 	if err := q.QueryRow(ctx, m.opts.lastMigrationStmt()).Scan(&num); err != nil {
 		return nil, errors.Wrap(err, "fetch last migration")
@@ -165,7 +190,7 @@ func (m *migrator) currentMigration(ctx context.Context, q sql.Queryer) (Migrati
 
 func (m *migrator) nextMigration(ctx context.Context, q sql.Queryer) (Migration, error) {
 	var (
-		num stdsql.NullInt64
+		num sql.NullInt64
 		mi  Migration
 		err error
 	)
