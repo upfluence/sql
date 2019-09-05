@@ -8,6 +8,7 @@ import (
 	"github.com/upfluence/sql/backend/replication"
 	"github.com/upfluence/sql/backend/roundrobin"
 	"github.com/upfluence/sql/backend/simple"
+	"github.com/upfluence/sql/backend/sqlite3"
 	"github.com/upfluence/sql/sqlparser"
 )
 
@@ -18,8 +19,8 @@ var (
 )
 
 type dbInput struct {
-	isPostgres, isMaster bool
-	driver, uri          string
+	isMaster    bool
+	driver, uri string
 }
 
 func (i *dbInput) buildDB(p sqlparser.SQLParser) (sql.DB, error) {
@@ -29,8 +30,11 @@ func (i *dbInput) buildDB(p sqlparser.SQLParser) (sql.DB, error) {
 		return nil, err
 	}
 
-	if i.isPostgres {
+	switch i.driver {
+	case "postgres":
 		db = postgres.NewDB(db, p)
+	case "sqlite3":
+		db = sqlite3.NewDB(db)
 	}
 
 	return db, nil
@@ -94,7 +98,7 @@ func WithDatabase(driver, dsn string, readOnly bool) Option {
 	return func(b *builder) {
 		b.dbs = append(
 			b.dbs,
-			&dbInput{driver: driver, uri: dsn, isPostgres: driver == "postgres", isMaster: !readOnly},
+			&dbInput{driver: driver, uri: dsn, isMaster: !readOnly},
 		)
 	}
 }
