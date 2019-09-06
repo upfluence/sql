@@ -18,7 +18,7 @@ type queryer struct {
 }
 
 func (q *queryer) Exec(ctx context.Context, qry string, vs ...interface{}) (sql.Result, error) {
-	return q.ExecContext(ctx, qry, stripReturningFields(vs)...)
+	return q.ExecContext(ctx, qry, sql.StripReturningFields(vs)...)
 }
 
 func (q *queryer) QueryRow(ctx context.Context, qry string, vs ...interface{}) sql.Scanner {
@@ -27,16 +27,4 @@ func (q *queryer) QueryRow(ctx context.Context, qry string, vs ...interface{}) s
 
 func (q *queryer) Query(ctx context.Context, qry string, vs ...interface{}) (sql.Cursor, error) {
 	return q.QueryContext(ctx, qry, vs...)
-}
-
-func stripReturningFields(vs []interface{}) []interface{} {
-	var res []interface{}
-
-	for _, v := range vs {
-		if _, ok := v.(*sql.Returning); !ok {
-			res = append(res, v)
-		}
-	}
-
-	return res
 }

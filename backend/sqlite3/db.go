@@ -90,8 +90,11 @@ func (q *queryer) Query(ctx context.Context, stmt string, vs ...interface{}) (sq
 func (q *queryer) rewrite(stmt string, vs []interface{}) (string, []interface{}, error) {
 	var (
 		args = make(map[int]int)
-		i    = 0
+
+		i int
 	)
+
+	vs = sql.StripReturningFields(vs)
 
 	rstmt := argRegexp.ReplaceAllStringFunc(stmt, func(frag string) string {
 		v, err := strconv.Atoi(strings.TrimPrefix(frag, "$"))

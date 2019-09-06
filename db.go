@@ -46,6 +46,18 @@ type Returning struct {
 	Field string
 }
 
+func StripReturningFields(vs []interface{}) []interface{} {
+	var res []interface{}
+
+	for _, v := range vs {
+		if _, ok := v.(*Returning); !ok {
+			res = append(res, v)
+		}
+	}
+
+	return res
+}
+
 type MiddlewareFactory interface {
 	Wrap(DB) DB
 }

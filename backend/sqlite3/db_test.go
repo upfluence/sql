@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/upfluence/sql"
 	"github.com/upfluence/sql/backend/static"
 )
 
@@ -28,11 +30,22 @@ func TestQueryer(t *testing.T) {
 			out: static.Query{Query: "?, ?, ?", Args: []interface{}{2, 1, 3}},
 		},
 		{
+			in: static.Query{
+				Query: "$2, $1, $3",
+				Args:  []interface{}{1, 2, 3, &sql.Returning{Field: "foo"}},
+			},
+			out: static.Query{Query: "?, ?, ?", Args: []interface{}{2, 1, 3}},
+		},
+		{
 			in:  static.Query{Query: "$2, $1, $3, $4", Args: []interface{}{1, 2, 3}},
 			err: ErrInvalidArgsNumber,
 		},
 		{
 			in:  static.Query{Query: "$2, $1, $4", Args: []interface{}{1, 2, 3}},
+			err: ErrInvalidArgsNumber,
+		},
+		{
+			in:  static.Query{Query: "$2, $1, $3", Args: []interface{}{1, 2, 3, 4}},
 			err: ErrInvalidArgsNumber,
 		},
 	} {
