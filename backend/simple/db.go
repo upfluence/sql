@@ -31,44 +31,120 @@ func NewDB(driver, uri string) (sql.DB, error) {
 
 type tx struct {
 	sync.Mutex
+	ctx context.Context
+
+	ch chan struct{}
 
 	q  *queryer
 	tx *stdsql.Tx
 }
 
 func (tx *tx) Commit() error {
-	tx.Lock()
-	defer tx.Unlock()
+	select {
+	case <-tx.ctx.Done():
+		return tx.ctx.Err()
+	case tx.ch <- struct{}{}:
+	}
 
-	return tx.tx.Commit()
+	err := tx.tx.Commit()
+	<-tx.ch
+
+	return err
 }
 
 func (tx *tx) Rollback() error {
-	tx.Lock()
-	defer tx.Unlock()
+	select {
+	case <-tx.ctx.Done():
+		return tx.ctx.Err()
+	case tx.ch <- struct{}{}:
+	}
 
-	return tx.tx.Rollback()
+	err := tx.tx.Rollback()
+	<-tx.ch
+
+	return err
 }
 
 func (tx *tx) Exec(ctx context.Context, qry string, vs ...interface{}) (sql.Result, error) {
-	tx.Lock()
-	defer tx.Unlock()
+	select {
+	case <-tx.ctx.Done():
+		return nil, tx.ctx.Err()
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case tx.ch <- struct{}{}:
+	}
 
-	return tx.q.ExecContext(ctx, qry, sql.StripReturningFields(vs)...)
+	res, err := tx.q.ExecContext(ctx, qry, sql.StripReturningFields(vs)...)
+	<-tx.ch
+
+	return res, err
+}
+
+type scanner struct {
+	s  sql.Scanner
+	tx *tx
+}
+
+func (s *scanner) Scan(vs ...interface{}) error {
+	err := s.s.Scan(vs...)
+
+	<-s.tx.ch
+
+	return err
+}
+
+type errScanner struct {
+	error
+}
+
+func (es errScanner) Scan(...interface{}) error {
+	return es.error
 }
 
 func (tx *tx) QueryRow(ctx context.Context, qry string, vs ...interface{}) sql.Scanner {
-	tx.Lock()
-	defer tx.Unlock()
+	select {
+	case <-tx.ctx.Done():
+		return errScanner{tx.ctx.Err()}
+	case <-ctx.Done():
+		return errScanner{ctx.Err()}
+	case tx.ch <- struct{}{}:
+	}
 
-	return tx.q.QueryRowContext(ctx, qry, vs...)
+	return &scanner{
+		s:  tx.q.QueryRowContext(ctx, qry, vs...),
+		tx: tx,
+	}
+}
+
+type cursor struct {
+	sql.Cursor
+	tx *tx
+}
+
+func (c *cursor) Close() error {
+	err := c.Cursor.Close()
+
+	<-c.tx.ch
+	return err
 }
 
 func (tx *tx) Query(ctx context.Context, qry string, vs ...interface{}) (sql.Cursor, error) {
-	tx.Lock()
-	defer tx.Unlock()
+	select {
+	case <-tx.ctx.Done():
+		return nil, tx.ctx.Err()
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case tx.ch <- struct{}{}:
+	}
 
-	return tx.q.QueryContext(ctx, qry, vs...)
+	cur, err := tx.q.QueryContext(ctx, qry, vs...)
+
+	if err != nil {
+		<-tx.ch
+		return nil, err
+	}
+
+	return &cursor{Cursor: cur, tx: tx}, nil
 }
 
 func (d *db) Driver() string { return d.driver }
@@ -80,5 +156,10 @@ func (d *db) BeginTx(ctx context.Context) (sql.Tx, error) {
 		return nil, err
 	}
 
-	return &tx{q: &queryer{t}, tx: t}, nil
+	return &tx{
+		ctx: ctx,
+		ch:  make(chan struct{}, 1),
+		q:   &queryer{t},
+		tx:  t,
+	}, nil
 }
