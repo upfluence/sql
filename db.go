@@ -28,13 +28,6 @@ type Queryer interface {
 	Query(context.Context, string, ...interface{}) (Cursor, error)
 }
 
-type Tx interface {
-	Queryer
-
-	Commit() error
-	Rollback() error
-}
-
 type DB interface {
 	Queryer
 
