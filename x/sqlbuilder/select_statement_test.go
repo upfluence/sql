@@ -54,6 +54,7 @@ func TestSelectQuery(t *testing.T) {
 
 		stmt string
 		args []interface{}
+		err  error
 	}{
 		{
 			name: "join",
@@ -114,11 +115,20 @@ func TestSelectQuery(t *testing.T) {
 			vs:   map[string]interface{}{"bar": []int64{}},
 			stmt: "SELECT bar FROM foo WHERE 1=0",
 		},
+		{
+			name: "error no marker",
+			ss: SelectStatement{
+				Table:       "foo",
+				WhereClause: In(Column("bar")),
+			},
+			vs:  map[string]interface{}{"bar": []int64{}},
+			err: errNoMarkers,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			stmt, args, _, err := tt.ss.buildQuery(tt.vs)
 
-			assert.Nil(t, err)
+			assert.Equal(t, tt.err, err)
 			assert.Equal(t, tt.stmt, stmt)
 			assert.Equal(t, tt.args, args)
 		})

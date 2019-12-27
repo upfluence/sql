@@ -1,6 +1,11 @@
 package sqlbuilder
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+var errNoMarkers = errors.New("x/sqlbuilder: No marker given to the statement")
 
 type Marker interface {
 	Binding() string

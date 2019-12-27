@@ -14,8 +14,39 @@ func (qb *QueryBuilder) PrepareSelect(ss SelectStatement) Queryer {
 	return &selectQueryer{qb: qb, ss: ss}
 }
 
+func (qb *QueryBuilder) PrepareInsert(is InsertStatement) Execer {
+	return &execer{qb: qb, stmt: is}
+}
+
+func (qb *QueryBuilder) PrepareUpdate(us UpdateStatement) Execer {
+	return &execer{qb: qb, stmt: us}
+}
+
+func (qb *QueryBuilder) PrepareDelete(ds DeleteStatement) Execer {
+	return &execer{qb: qb, stmt: ds}
+}
+
 type Execer interface {
 	Exec(context.Context, map[string]interface{}) (sql.Result, error)
+}
+
+type statement interface {
+	buildQuery(map[string]interface{}) (string, []interface{}, error)
+}
+
+type execer struct {
+	qb   *QueryBuilder
+	stmt statement
+}
+
+func (e *execer) Exec(ctx context.Context, qvs map[string]interface{}) (sql.Result, error) {
+	stmt, vs, err := e.stmt.buildQuery(qvs)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return e.qb.Exec(ctx, stmt, vs...)
 }
 
 type Scanner interface {

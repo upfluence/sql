@@ -48,71 +48,75 @@ type QueryWriter interface {
 	RedeemVariable(interface{}) string
 }
 
-type selectQueryWriter struct {
+type queryWriter struct {
 	strings.Builder
 
 	i  int
 	vs []interface{}
 }
 
-func (sqw *selectQueryWriter) RedeemVariable(v interface{}) string {
-	sqw.i++
-	sqw.vs = append(sqw.vs, v)
-	return fmt.Sprintf("$%d", sqw.i)
+func (qw *queryWriter) RedeemVariable(v interface{}) string {
+	qw.i++
+	qw.vs = append(qw.vs, v)
+	return fmt.Sprintf("$%d", qw.i)
 }
 
 func (ss SelectStatement) buildQuery(vs map[string]interface{}) (string, []interface{}, []string, error) {
 	var (
-		sqw      selectQueryWriter
+		qw       queryWriter
 		bindings []string
 	)
 
-	sqw.WriteString("SELECT ")
+	if len(ss.SelectClauses) == 0 {
+		return "", nil, nil, errNoMarkers
+	}
+
+	qw.WriteString("SELECT ")
 
 	for i, c := range ss.SelectClauses {
-		sqw.WriteString(c.ToSQL())
+		qw.WriteString(c.ToSQL())
 
 		if i < len(ss.SelectClauses)-1 {
-			sqw.WriteString(", ")
+			qw.WriteString(", ")
 		}
 
 		bindings = append(bindings, c.Binding())
 	}
 
-	sqw.WriteString(" FROM ")
-	sqw.WriteString(ss.Table)
+	qw.WriteString(" FROM ")
+	qw.WriteString(ss.Table)
 
 	for _, jc := range ss.JoinClauses {
-		jc.WriteTo(&sqw, vs)
+		jc.WriteTo(&qw, vs)
 	}
 
 	if wc := ss.WhereClause; wc != nil {
-		sqw.WriteString(" WHERE ")
+		qw.WriteString(" WHERE ")
 
-		if err := wc.WriteTo(&sqw, vs); err != nil {
+		if err := wc.WriteTo(&qw, vs); err != nil {
 			return "", nil, nil, err
 		}
 	}
 
 	if len(ss.GroupByClause) > 0 {
-		sqw.WriteString(" GROUP BY ")
+		qw.WriteString(" GROUP BY ")
 
 		for i, c := range ss.GroupByClause {
-			sqw.WriteString(c.ToSQL())
+			qw.WriteString(c.ToSQL())
 
 			if i < len(ss.GroupByClause)-1 {
-				sqw.WriteString(", ")
+				qw.WriteString(", ")
 			}
 		}
 	}
 
 	if hc := ss.HavingClause; hc != nil {
-		sqw.WriteString(" HAVING ")
+		qw.WriteString(" HAVING ")
 
-		if err := hc.WriteTo(&sqw, vs); err != nil {
+		if err := hc.WriteTo(&qw, vs); err != nil {
 			return "", nil, nil, err
 		}
 	}
 
-	return sqw.String(), sqw.vs, bindings, nil
+	return qw.String(), qw.vs, bindings, nil
 }
