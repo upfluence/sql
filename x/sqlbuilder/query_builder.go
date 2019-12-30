@@ -2,6 +2,9 @@ package sqlbuilder
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"strings"
 
 	"github.com/upfluence/sql"
 )
@@ -130,4 +133,23 @@ func (sc *scanner) Scan(vs map[string]interface{}) error {
 	}
 
 	return sc.sc.Scan(svs...)
+}
+
+type QueryWriter interface {
+	io.Writer
+
+	RedeemVariable(interface{}) string
+}
+
+type queryWriter struct {
+	strings.Builder
+
+	i  int
+	vs []interface{}
+}
+
+func (qw *queryWriter) RedeemVariable(v interface{}) string {
+	qw.i++
+	qw.vs = append(qw.vs, v)
+	return fmt.Sprintf("$%d", qw.i)
 }

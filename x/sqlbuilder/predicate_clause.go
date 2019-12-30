@@ -16,9 +16,7 @@ func PlainSQLPredicate(exp string) PredicateClause {
 }
 
 func EqMarkers(l, r Marker) PredicateClause {
-	return &staticStmtPredicateClauseWrapper{
-		sspc: plainSQLPredicate(fmt.Sprintf("%s = %s", l.ToSQL(), r.ToSQL())),
-	}
+	return PlainSQLPredicate(fmt.Sprintf("%s = %s", l.ToSQL(), r.ToSQL()))
 }
 
 type StaticStmtPredicateClause interface {

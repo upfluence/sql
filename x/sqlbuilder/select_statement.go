@@ -42,25 +42,6 @@ func (jc JoinClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
 	return jc.WhereClause.WriteTo(w, vs)
 }
 
-type QueryWriter interface {
-	io.Writer
-
-	RedeemVariable(interface{}) string
-}
-
-type queryWriter struct {
-	strings.Builder
-
-	i  int
-	vs []interface{}
-}
-
-func (qw *queryWriter) RedeemVariable(v interface{}) string {
-	qw.i++
-	qw.vs = append(qw.vs, v)
-	return fmt.Sprintf("$%d", qw.i)
-}
-
 func (ss SelectStatement) buildQuery(vs map[string]interface{}) (string, []interface{}, []string, error) {
 	var (
 		qw       queryWriter
