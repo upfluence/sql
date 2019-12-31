@@ -34,7 +34,29 @@ func (sspcw *staticStmtPredicateClauseWrapper) WriteTo(w QueryWriter, _ map[stri
 }
 
 type StaticValuePredicateClause interface {
-	WriteTo(w QueryWriter) error
+	WriteTo(QueryWriter) error
+}
+
+type staticClause struct {
+	m  Marker
+	v  interface{}
+	fn func(QueryWriter, interface{}, string) error
+}
+
+func (sc *staticClause) WriteTo(w QueryWriter) error {
+	return sc.fn(w, sc.v, sc.m.ToSQL())
+}
+
+func StaticIn(m Marker, v interface{}) PredicateClause {
+	return &staticValuePredicateClauseWrapper{
+		svpc: &staticClause{m: m, v: v, fn: writeInClause},
+	}
+}
+
+func StaticEq(m Marker, v interface{}) PredicateClause {
+	return &staticValuePredicateClauseWrapper{
+		svpc: &staticClause{m: m, v: v, fn: writeSignClause("=")},
+	}
 }
 
 type staticValuePredicateClauseWrapper struct {
@@ -57,28 +79,22 @@ func (emk ErrMissingKey) Error() string {
 
 var errInvalidType = errors.New("sqlbuilder: invalid type")
 
-type singleClause struct {
-	sign string
-	m    Marker
+func Eq(m Marker) PredicateClause  { return signClause(m, "=") }
+func Ne(m Marker) PredicateClause  { return signClause(m, "!=") }
+func Lt(m Marker) PredicateClause  { return signClause(m, "<") }
+func Lte(m Marker) PredicateClause { return signClause(m, "<=") }
+func Gt(m Marker) PredicateClause  { return signClause(m, ">") }
+func Gte(m Marker) PredicateClause { return signClause(m, ">=") }
+
+func signClause(m Marker, s string) *basicClause {
+	return &basicClause{m: m, fn: writeSignClause(s)}
 }
 
-func Eq(m Marker) PredicateClause  { return singleClause{sign: "=", m: m} }
-func Ne(m Marker) PredicateClause  { return singleClause{sign: "!=", m: m} }
-func Lt(m Marker) PredicateClause  { return singleClause{sign: "<", m: m} }
-func Lte(m Marker) PredicateClause { return singleClause{sign: "<=", m: m} }
-func Gt(m Marker) PredicateClause  { return singleClause{sign: ">", m: m} }
-func Gte(m Marker) PredicateClause { return singleClause{sign: ">=", m: m} }
-
-func (sc singleClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
-	b := sc.m.Binding()
-	v, ok := vs[b]
-
-	if !ok {
-		return ErrMissingKey{b}
+func writeSignClause(s string) func(QueryWriter, interface{}, string) error {
+	return func(w QueryWriter, vv interface{}, k string) error {
+		fmt.Fprintf(w, "%s %s %s", k, s, w.RedeemVariable(vv))
+		return nil
 	}
-
-	fmt.Fprintf(w, "%s %s %s", sc.m.ToSQL(), sc.sign, w.RedeemVariable(v))
-	return nil
 }
 
 type multiClause struct {
@@ -118,21 +134,24 @@ func (mc multiClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
 	return nil
 }
 
-type inClause struct {
-	m Marker
+func In(m Marker) PredicateClause {
+	return &basicClause{m: m, fn: writeInClause}
 }
 
-func In(m Marker) PredicateClause { return inClause{m: m} }
+type basicClause struct {
+	m  Marker
+	fn func(QueryWriter, interface{}, string) error
+}
 
-func (ic inClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
-	b := ic.m.Binding()
+func (bc *basicClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
+	b := bc.m.Binding()
 	vv, ok := vs[b]
 
 	if !ok {
 		return ErrMissingKey{b}
 	}
 
-	return writeInClause(w, vv, ic.m.ToSQL())
+	return bc.fn(w, vv, bc.m.ToSQL())
 }
 
 func writeInClause(w QueryWriter, vv interface{}, k string) error {

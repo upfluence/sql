@@ -116,6 +116,26 @@ func TestSelectQuery(t *testing.T) {
 			stmt: "SELECT bar FROM foo WHERE 1=0",
 		},
 		{
+			name: "static in",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticIn(Column("bar"), []int{1, 2, 3}),
+			},
+			stmt: "SELECT bar FROM foo WHERE bar IN ($1, $2, $3)",
+			args: []interface{}{1, 2, 3},
+		},
+		{
+			name: "static eq",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticEq(Column("bar"), "buz"),
+			},
+			stmt: "SELECT bar FROM foo WHERE bar = $1",
+			args: []interface{}{"buz"},
+		},
+		{
 			name: "error no marker",
 			ss: SelectStatement{
 				Table:       "foo",
