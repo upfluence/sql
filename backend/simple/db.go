@@ -15,8 +15,8 @@ type db struct {
 	driver string
 }
 
-func FromStdDB(stdDB *stdsql.DB) sql.DB {
-	return &db{queryer: &queryer{stdDB}, db: stdDB}
+func FromStdDB(stdDB *stdsql.DB, driver string) sql.DB {
+	return &db{queryer: &queryer{stdDB}, db: stdDB, driver: driver}
 }
 
 func NewDB(driver, uri string) (sql.DB, error) {
@@ -26,7 +26,7 @@ func NewDB(driver, uri string) (sql.DB, error) {
 		return nil, err
 	}
 
-	return &db{queryer: &queryer{plainDB}, db: plainDB, driver: driver}, nil
+	return FromStdDB(plainDB, driver), nil
 }
 
 type tx struct {
