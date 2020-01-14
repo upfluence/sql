@@ -1,7 +1,9 @@
 package sqlutil
 
 import (
+	stdsql "database/sql"
 	"errors"
+	"time"
 
 	"github.com/upfluence/sql"
 	"github.com/upfluence/sql/backend/postgres"
@@ -18,17 +20,64 @@ var (
 	ErrNoDBProvided = errors.New("sql/sqlutil: No DB provided")
 )
 
+type DBOption func(*dbInput)
+
+func WithMaxIdleConns(v int) DBOption {
+	return func(i *dbInput) {
+		v := v
+		i.maxIdleConns = &v
+	}
+}
+
+func WithMaxOpenConns(v int) DBOption {
+	return func(i *dbInput) {
+		v := v
+		i.maxOpenConns = &v
+	}
+}
+
+func WithConnMaxLifetime(v time.Duration) DBOption {
+	return func(i *dbInput) {
+		v := v
+		i.maxLifetime = &v
+	}
+}
+
 type dbInput struct {
-	isMaster    bool
-	driver, uri string
+	isMaster bool
+
+	driver string
+	uri    string
+
+	maxIdleConns *int
+	maxOpenConns *int
+	maxLifetime  *time.Duration
+}
+
+func (i *dbInput) prepareDB(db *stdsql.DB) {
+	if i.maxIdleConns != nil {
+		db.SetMaxIdleConns(*i.maxIdleConns)
+	}
+
+	if i.maxOpenConns != nil {
+		db.SetMaxOpenConns(*i.maxOpenConns)
+	}
+
+	if i.maxLifetime != nil {
+		db.SetConnMaxLifetime(*i.maxLifetime)
+	}
 }
 
 func (i *dbInput) buildDB(p sqlparser.SQLParser) (sql.DB, error) {
-	var db, err = simple.NewDB(i.driver, i.uri)
+	var plainDB, err = stdsql.Open(i.driver, i.uri)
 
 	if err != nil {
 		return nil, err
 	}
+
+	i.prepareDB(plainDB)
+
+	db := simple.FromStdDB(plainDB, i.driver)
 
 	switch i.driver {
 	case "postgres":
@@ -94,21 +143,22 @@ type builder struct {
 
 type Option func(*builder)
 
-func WithDatabase(driver, dsn string, readOnly bool) Option {
-	return func(b *builder) {
-		b.dbs = append(
-			b.dbs,
-			&dbInput{driver: driver, uri: dsn, isMaster: !readOnly},
-		)
+func WithDatabase(driver, dsn string, readOnly bool, opts ...DBOption) Option {
+	i := dbInput{driver: driver, uri: dsn, isMaster: !readOnly}
+
+	for _, opt := range opts {
+		opt(&i)
 	}
+
+	return func(b *builder) { b.dbs = append(b.dbs, &i) }
 }
 
-func WithMaster(driver, dsn string) Option {
-	return WithDatabase(driver, dsn, false)
+func WithMaster(driver, dsn string, opts ...DBOption) Option {
+	return WithDatabase(driver, dsn, false, opts...)
 }
 
-func WithSlave(driver, dsn string) Option {
-	return WithDatabase(driver, dsn, true)
+func WithSlave(driver, dsn string, opts ...DBOption) Option {
+	return WithDatabase(driver, dsn, true, opts...)
 }
 
 func WithMiddleware(f sql.MiddlewareFactory) Option {
