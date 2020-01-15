@@ -2,6 +2,7 @@ package balancer
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"sync"
 
@@ -9,8 +10,10 @@ import (
 )
 
 var (
-	RoundRobinBalancerBuilder   = roundRobinBalancerBulder{}
-	LeastPendingBalancerBuilder = leastPendingBalancerBuilder{}
+	RoundRobinBalancerBuilder   = BalancerBuilderFunc(buildRoundRobinBalancer)
+	LeastPendingBalancerBuilder = BalancerBuilderFunc(buildLeastPendingBalancer)
+
+	errNoDB = errors.New("backend/balancer: No DB registered")
 )
 
 type CloseFunc func(error)
@@ -19,13 +22,15 @@ type BalancerBuilder interface {
 	Build([]sql.DB) Balancer
 }
 
+type BalancerBuilderFunc func([]sql.DB) Balancer
+
+func (fn BalancerBuilderFunc) Build(dbs []sql.DB) Balancer { return fn(dbs) }
+
 type Balancer interface {
 	Get(context.Context) (sql.DB, CloseFunc, error)
 }
 
-type roundRobinBalancerBulder struct{}
-
-func (roundRobinBalancerBulder) Build(dbs []sql.DB) Balancer {
+func buildRoundRobinBalancer(dbs []sql.DB) Balancer {
 	return &roundRobinBalancer{dbs: dbs}
 }
 
@@ -38,18 +43,19 @@ type roundRobinBalancer struct {
 
 func (rrb *roundRobinBalancer) Get(context.Context) (sql.DB, CloseFunc, error) {
 	rrb.mu.Lock()
+	defer rrb.mu.Unlock()
+
+	if len(rrb.dbs) == 0 {
+		return nil, nil, errNoDB
+	}
 
 	db := rrb.dbs[rrb.i]
 	rrb.i = (rrb.i + 1) % len(rrb.dbs)
 
-	rrb.mu.Unlock()
-
 	return db, func(error) {}, nil
 }
 
-type leastPendingBalancerBuilder struct{}
-
-func (leastPendingBalancerBuilder) Build(dbs []sql.DB) Balancer {
+func buildLeastPendingBalancer(dbs []sql.DB) Balancer {
 	return &leastPendingBalancer{
 		dbs:      dbs,
 		pendings: make(map[sql.DB]int, len(dbs)),
@@ -75,13 +81,16 @@ func (lpb *leastPendingBalancer) Swap(i, j int) {
 
 func (lpb *leastPendingBalancer) Get(context.Context) (sql.DB, CloseFunc, error) {
 	lpb.mu.Lock()
+	defer lpb.mu.Unlock()
+
+	if len(lpb.dbs) == 0 {
+		return nil, nil, errNoDB
+	}
 
 	db := lpb.dbs[0]
 
 	lpb.pendings[db]++
 	sort.Sort(lpb)
-
-	lpb.mu.Unlock()
 
 	return db, func(error) {
 		lpb.mu.Lock()
