@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+type NullableInt struct {
+	Int   int
+	Valid bool
+}
+
 type SelectStatement struct {
 	Table string
 
@@ -14,6 +19,9 @@ type SelectStatement struct {
 	WhereClause   PredicateClause
 	GroupByClause []Marker
 	HavingClause  PredicateClause
+
+	Offset NullableInt
+	Limit  NullableInt
 }
 
 type JoinType string
@@ -97,6 +105,14 @@ func (ss SelectStatement) buildQuery(vs map[string]interface{}) (string, []inter
 		if err := hc.WriteTo(&qw, vs); err != nil {
 			return "", nil, nil, err
 		}
+	}
+
+	if ss.Limit.Valid {
+		fmt.Fprintf(&qw, " LIMIT %d", ss.Limit.Int)
+	}
+
+	if ss.Offset.Valid {
+		fmt.Fprintf(&qw, " OFFSET %d", ss.Offset.Int)
 	}
 
 	return qw.String(), qw.vs, bindings, nil

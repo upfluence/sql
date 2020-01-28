@@ -126,6 +126,16 @@ func TestSelectQuery(t *testing.T) {
 			args: []interface{}{1, 2, 3},
 		},
 		{
+			name: "limit & offset",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				Limit:         NullableInt{Int: 5, Valid: true},
+				Offset:        NullableInt{Int: 1, Valid: true},
+			},
+			stmt: "SELECT bar FROM foo LIMIT 5 OFFSET 1",
+		},
+		{
 			name: "static eq",
 			ss: SelectStatement{
 				Table:         "foo",
