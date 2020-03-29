@@ -9,6 +9,14 @@ type UpdateStatement struct {
 	WhereClause PredicateClause
 }
 
+func (us UpdateStatement) Clone() UpdateStatement {
+	return UpdateStatement{
+		Table:       us.Table,
+		Fields:      cloneMarkers(us.Fields),
+		WhereClause: us.WhereClause.Clone(),
+	}
+}
+
 func (us UpdateStatement) buildQuery(vs map[string]interface{}) (string, []interface{}, error) {
 	var qw queryWriter
 

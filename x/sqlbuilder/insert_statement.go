@@ -11,6 +11,10 @@ type InsertStatement struct {
 	Fields []Marker
 }
 
+func (is InsertStatement) Clone() InsertStatement {
+	return InsertStatement{Table: is.Table, Fields: cloneMarkers(is.Fields)}
+}
+
 func (is InsertStatement) buildQuery(qvs map[string]interface{}) (string, []interface{}, error) {
 	var (
 		b strings.Builder
