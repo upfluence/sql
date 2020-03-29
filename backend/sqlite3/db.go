@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mattn/go-sqlite3"
+
 	"github.com/upfluence/sql"
 )
 
@@ -58,7 +60,9 @@ func (q *queryer) Exec(ctx context.Context, stmt string, vs ...interface{}) (sql
 		return nil, err
 	}
 
-	return q.q.Exec(ctx, stmt, vs...)
+	res, err := q.q.Exec(ctx, stmt, vs...)
+
+	return res, wrapErr(err)
 }
 
 func (q *queryer) QueryRow(ctx context.Context, stmt string, vs ...interface{}) sql.Scanner {
@@ -68,7 +72,23 @@ func (q *queryer) QueryRow(ctx context.Context, stmt string, vs ...interface{}) 
 		return errScanner{err}
 	}
 
-	return q.q.QueryRow(ctx, stmt, vs...)
+	return &scanner{sc: q.q.QueryRow(ctx, stmt, vs...)}
+}
+
+type scanner struct {
+	sc sql.Scanner
+}
+
+func (sc *scanner) Scan(vs ...interface{}) error {
+	return wrapErr(sc.sc.Scan(vs...))
+}
+
+type cursor struct {
+	sql.Cursor
+}
+
+func (c *cursor) Scan(vs ...interface{}) error {
+	return wrapErr(c.Cursor.Scan(vs...))
 }
 
 type errScanner struct {
@@ -84,7 +104,9 @@ func (q *queryer) Query(ctx context.Context, stmt string, vs ...interface{}) (sq
 		return nil, err
 	}
 
-	return q.q.Query(ctx, stmt, vs...)
+	cur, err := q.q.Query(ctx, stmt, vs...)
+
+	return &cursor{Cursor: cur}, wrapErr(err)
 }
 
 func (q *queryer) rewrite(stmt string, vs []interface{}) (string, []interface{}, error) {
@@ -124,4 +146,35 @@ func (q *queryer) rewrite(stmt string, vs []interface{}) (string, []interface{},
 	}
 
 	return rstmt, rvs, nil
+}
+
+func wrapErr(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	sqlErr, ok := err.(sqlite3.Error)
+
+	if !ok {
+		return err
+	}
+
+	if sqlErr.Code != sqlite3.ErrConstraint {
+		return err
+	}
+
+	werr := sql.ConstraintError{Cause: err}
+
+	switch sqlErr.ExtendedCode {
+	case sqlite3.ErrConstraintPrimaryKey:
+		werr.Type = sql.PrimaryKey
+	case sqlite3.ErrConstraintForeignKey:
+		werr.Type = sql.ForeignKey
+	case sqlite3.ErrConstraintNotNull:
+		werr.Type = sql.NotNull
+	case sqlite3.ErrConstraintUnique:
+		werr.Type = sql.Unique
+	}
+
+	return werr
 }
