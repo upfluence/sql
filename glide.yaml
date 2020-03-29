@@ -1,5 +1,6 @@
 package: github.com/upfluence/sql
 import:
+- package: github.com/mattn/go-sqlite3
 - package: github.com/upfluence/log
   subpackages:
   - record
