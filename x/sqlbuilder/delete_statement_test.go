@@ -28,7 +28,7 @@ func TestDeleteQuery(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			stmt, args, err := tt.ds.buildQuery(tt.vs)
+			stmt, args, err := tt.ds.Clone().buildQuery(tt.vs)
 
 			assert.Nil(t, err)
 			assert.Equal(t, tt.stmt, stmt)

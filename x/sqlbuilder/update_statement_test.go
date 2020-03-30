@@ -59,7 +59,7 @@ func TestUpdateQuery(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			stmt, args, err := tt.us.buildQuery(tt.vs)
+			stmt, args, err := tt.us.Clone().buildQuery(tt.vs)
 
 			assert.Equal(t, tt.err, err)
 			assert.Equal(t, tt.stmt, stmt)

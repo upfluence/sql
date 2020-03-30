@@ -11,7 +11,7 @@ type DeleteStatement struct {
 func (ds DeleteStatement) Clone() DeleteStatement {
 	return DeleteStatement{
 		Table:       ds.Table,
-		WhereClause: ds.WhereClause.Clone(),
+		WhereClause: clonePredicateClause(ds.WhereClause),
 	}
 }
 

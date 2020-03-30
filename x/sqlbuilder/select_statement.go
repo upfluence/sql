@@ -29,9 +29,9 @@ func (ss SelectStatement) Clone() SelectStatement {
 		Table:         ss.Table,
 		JoinClauses:   cloneJoinClauses(ss.JoinClauses),
 		SelectClauses: cloneMarkers(ss.SelectClauses),
-		WhereClause:   ss.WhereClause.Clone(),
+		WhereClause:   clonePredicateClause(ss.WhereClause),
 		GroupByClause: cloneMarkers(ss.GroupByClause),
-		HavingClause:  ss.HavingClause.Clone(),
+		HavingClause:  clonePredicateClause(ss.HavingClause),
 		Offset:        ss.Offset,
 		Limit:         ss.Limit,
 	}
@@ -132,7 +132,11 @@ func (jc JoinClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
 }
 
 func cloneJoinClauses(jcs []JoinClause) []JoinClause {
-	var res = make([]JoinClause, len(jcs))
+	if len(jcs) == 0 {
+		return nil
+	}
+
+	res := make([]JoinClause, len(jcs))
 
 	for i, jc := range jcs {
 		res[i] = JoinClause{

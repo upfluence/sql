@@ -13,7 +13,7 @@ func (us UpdateStatement) Clone() UpdateStatement {
 	return UpdateStatement{
 		Table:       us.Table,
 		Fields:      cloneMarkers(us.Fields),
-		WhereClause: us.WhereClause.Clone(),
+		WhereClause: clonePredicateClause(us.WhereClause),
 	}
 }
 

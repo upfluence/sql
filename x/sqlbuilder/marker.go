@@ -37,7 +37,11 @@ func ColumnWithTable(b, t, c string) Marker {
 }
 
 func cloneMarkers(ms []Marker) []Marker {
-	var res = make([]Marker, len(ms))
+	if len(ms) == 0 {
+		return nil
+	}
+
+	res := make([]Marker, len(ms))
 
 	for i, m := range ms {
 		res[i] = m.Clone()

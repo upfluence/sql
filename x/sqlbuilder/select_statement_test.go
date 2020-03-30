@@ -156,7 +156,7 @@ func TestSelectQuery(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			stmt, args, _, err := tt.ss.buildQuery(tt.vs)
+			stmt, args, _, err := tt.ss.Clone().buildQuery(tt.vs)
 
 			assert.Equal(t, tt.err, err)
 			assert.Equal(t, tt.stmt, stmt)

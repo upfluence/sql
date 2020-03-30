@@ -135,10 +135,14 @@ func Or(wcs ...PredicateClause) PredicateClause {
 }
 
 func (mc multiClause) Clone() PredicateClause {
-	wcs := make([]PredicateClause, len(mc.wcs))
+	var wcs []PredicateClause
 
-	for i, pc := range mc.wcs {
-		wcs[i] = pc.Clone()
+	if len(mc.wcs) > 0 {
+		wcs = make([]PredicateClause, len(mc.wcs))
+
+		for i, pc := range mc.wcs {
+			wcs[i] = pc.Clone()
+		}
 	}
 
 	return multiClause{wcs: wcs, op: mc.op}
@@ -215,4 +219,12 @@ func writeInClause(w QueryWriter, vv interface{}, k string) error {
 
 	io.WriteString(w, ")")
 	return nil
+}
+
+func clonePredicateClause(pc PredicateClause) PredicateClause {
+	if pc == nil {
+		return nil
+	}
+
+	return pc.Clone()
 }

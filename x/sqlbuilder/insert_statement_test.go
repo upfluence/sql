@@ -44,7 +44,7 @@ func TestInsertQuery(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			stmt, args, err := tt.is.buildQuery(tt.vs)
+			stmt, args, err := tt.is.Clone().buildQuery(tt.vs)
 
 			assert.Equal(t, tt.err, err)
 			assert.Equal(t, tt.stmt, stmt)
