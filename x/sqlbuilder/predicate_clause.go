@@ -11,6 +11,8 @@ type plainSQLPredicate string
 
 func (psp plainSQLPredicate) ToSQL() string { return string(psp) }
 
+func (psp plainSQLPredicate) Clone() StaticStmtPredicateClause { return psp }
+
 func PlainSQLPredicate(exp string) PredicateClause {
 	return &staticStmtPredicateClauseWrapper{sspc: plainSQLPredicate(exp)}
 }
@@ -20,11 +22,16 @@ func EqMarkers(l, r Marker) PredicateClause {
 }
 
 type StaticStmtPredicateClause interface {
+	Clone() StaticStmtPredicateClause
 	ToSQL() string
 }
 
 type staticStmtPredicateClauseWrapper struct {
 	sspc StaticStmtPredicateClause
+}
+
+func (sspcw *staticStmtPredicateClauseWrapper) Clone() PredicateClause {
+	return &staticStmtPredicateClauseWrapper{sspc: sspcw.sspc.Clone()}
 }
 
 func (sspcw *staticStmtPredicateClauseWrapper) WriteTo(w QueryWriter, _ map[string]interface{}) error {
@@ -35,12 +42,21 @@ func (sspcw *staticStmtPredicateClauseWrapper) WriteTo(w QueryWriter, _ map[stri
 
 type StaticValuePredicateClause interface {
 	WriteTo(QueryWriter) error
+	Clone() StaticValuePredicateClause
 }
 
 type staticClause struct {
 	m  Marker
 	v  interface{}
 	fn func(QueryWriter, interface{}, string) error
+}
+
+func (sc *staticClause) Clone() StaticValuePredicateClause {
+	return &staticClause{
+		m:  sc.m.Clone(),
+		v:  sc.v,
+		fn: sc.fn,
+	}
 }
 
 func (sc *staticClause) WriteTo(w QueryWriter) error {
@@ -63,12 +79,19 @@ type staticValuePredicateClauseWrapper struct {
 	svpc StaticValuePredicateClause
 }
 
+func (svpcw *staticValuePredicateClauseWrapper) Clone() PredicateClause {
+	return &staticValuePredicateClauseWrapper{
+		svpc: svpcw.svpc.Clone(),
+	}
+}
+
 func (svpcw *staticValuePredicateClauseWrapper) WriteTo(w QueryWriter, _ map[string]interface{}) error {
 	return svpcw.svpc.WriteTo(w)
 }
 
 type PredicateClause interface {
 	WriteTo(QueryWriter, map[string]interface{}) error
+	Clone() PredicateClause
 }
 
 type ErrMissingKey struct{ Key string }
@@ -111,6 +134,16 @@ func Or(wcs ...PredicateClause) PredicateClause {
 	return multiClause{wcs: wcs, op: "OR"}
 }
 
+func (mc multiClause) Clone() PredicateClause {
+	wcs := make([]PredicateClause, len(mc.wcs))
+
+	for i, pc := range mc.wcs {
+		wcs[i] = pc.Clone()
+	}
+
+	return multiClause{wcs: wcs, op: mc.op}
+}
+
 func (mc multiClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
 	if len(mc.wcs) == 0 {
 		io.WriteString(w, "1=0")
@@ -141,6 +174,10 @@ func In(m Marker) PredicateClause {
 type basicClause struct {
 	m  Marker
 	fn func(QueryWriter, interface{}, string) error
+}
+
+func (bc *basicClause) Clone() PredicateClause {
+	return &basicClause{m: bc.m.Clone(), fn: bc.fn}
 }
 
 func (bc *basicClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {

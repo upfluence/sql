@@ -8,6 +8,13 @@ type DeleteStatement struct {
 	WhereClause PredicateClause
 }
 
+func (ds DeleteStatement) Clone() DeleteStatement {
+	return DeleteStatement{
+		Table:       ds.Table,
+		WhereClause: ds.WhereClause.Clone(),
+	}
+}
+
 func (ds DeleteStatement) buildQuery(vs map[string]interface{}) (string, []interface{}, error) {
 	var qw queryWriter
 

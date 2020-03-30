@@ -24,30 +24,17 @@ type SelectStatement struct {
 	Limit  NullableInt
 }
 
-type JoinType string
-
-const (
-	DefaultJoin JoinType = ""
-	InnerJoin   JoinType = "INNER"
-	OuterJoin   JoinType = "OUTER"
-)
-
-type JoinClause struct {
-	Table string
-	Type  JoinType
-
-	WhereClause PredicateClause
-}
-
-func (jc JoinClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
-	fmt.Fprintf(w, " %s JOIN %s", strings.ToUpper(string(jc.Type)), jc.Table)
-
-	if jc.WhereClause == nil {
-		return nil
+func (ss SelectStatement) Clone() SelectStatement {
+	return SelectStatement{
+		Table:         ss.Table,
+		JoinClauses:   cloneJoinClauses(ss.JoinClauses),
+		SelectClauses: cloneMarkers(ss.SelectClauses),
+		WhereClause:   ss.WhereClause.Clone(),
+		GroupByClause: cloneMarkers(ss.GroupByClause),
+		HavingClause:  ss.HavingClause.Clone(),
+		Offset:        ss.Offset,
+		Limit:         ss.Limit,
 	}
-
-	io.WriteString(w, " ON ")
-	return jc.WhereClause.WriteTo(w, vs)
 }
 
 func (ss SelectStatement) buildQuery(vs map[string]interface{}) (string, []interface{}, []string, error) {
@@ -116,4 +103,44 @@ func (ss SelectStatement) buildQuery(vs map[string]interface{}) (string, []inter
 	}
 
 	return qw.String(), qw.vs, bindings, nil
+}
+
+type JoinType string
+
+const (
+	DefaultJoin JoinType = ""
+	InnerJoin   JoinType = "INNER"
+	OuterJoin   JoinType = "OUTER"
+)
+
+type JoinClause struct {
+	Table string
+	Type  JoinType
+
+	WhereClause PredicateClause
+}
+
+func (jc JoinClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
+	fmt.Fprintf(w, " %s JOIN %s", strings.ToUpper(string(jc.Type)), jc.Table)
+
+	if jc.WhereClause == nil {
+		return nil
+	}
+
+	io.WriteString(w, " ON ")
+	return jc.WhereClause.WriteTo(w, vs)
+}
+
+func cloneJoinClauses(jcs []JoinClause) []JoinClause {
+	var res = make([]JoinClause, len(jcs))
+
+	for i, jc := range jcs {
+		res[i] = JoinClause{
+			Table:       jc.Table,
+			Type:        jc.Type,
+			WhereClause: jc.WhereClause.Clone(),
+		}
+	}
+
+	return res
 }
