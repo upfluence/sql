@@ -1,6 +1,15 @@
 package sqlbuilder
 
-import "github.com/upfluence/sql"
+import (
+	"context"
+
+	"github.com/upfluence/sql"
+)
+
+type Queryer interface {
+	Query(context.Context, map[string]interface{}) (Cursor, error)
+	QueryRow(context.Context, map[string]interface{}) Scanner
+}
 
 type Scanner interface {
 	Scan(map[string]interface{}) error
