@@ -85,6 +85,16 @@ func TestSelectQuery(t *testing.T) {
 			stmt: "SELECT biz, COUNT(*) FROM foo GROUP BY biz HAVING COUNT(*) > 2",
 		},
 		{
+			name: "group by multiple",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("biz"), SQLExpression("count", "COUNT(*)")},
+				GroupByClause: []Marker{Column("biz"), Column("bar")},
+				HavingClause:  PlainSQLPredicate("COUNT(*) > 2"),
+			},
+			stmt: "SELECT biz, COUNT(*) FROM foo GROUP BY biz, bar HAVING COUNT(*) > 2",
+		},
+		{
 			name: "and predicate",
 			ss: SelectStatement{
 				Table:         "foo",
@@ -143,6 +153,31 @@ func TestSelectQuery(t *testing.T) {
 				WhereClause:   StaticEq(Column("bar"), "buz"),
 			},
 			stmt: "SELECT bar FROM foo WHERE bar = $1",
+			args: []interface{}{"buz"},
+		},
+		{
+			name: "order by",
+			ss: SelectStatement{
+				Table:          "foo",
+				SelectClauses:  []Marker{Column("bar")},
+				WhereClause:    StaticEq(Column("bar"), "buz"),
+				OrderByClauses: []OrderByClause{OrderByClause{Field: Column("bar")}},
+			},
+			stmt: "SELECT bar FROM foo WHERE bar = $1 ORDER BY bar",
+			args: []interface{}{"buz"},
+		},
+		{
+			name: "order by multi",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticEq(Column("bar"), "buz"),
+				OrderByClauses: []OrderByClause{
+					OrderByClause{Field: Column("bar")},
+					OrderByClause{Field: Column("buz"), Direction: Desc},
+				},
+			},
+			stmt: "SELECT bar FROM foo WHERE bar = $1 ORDER BY bar, buz DESC",
 			args: []interface{}{"buz"},
 		},
 		{

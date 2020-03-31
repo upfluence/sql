@@ -2,8 +2,6 @@ package sqlbuilder
 
 import (
 	"fmt"
-	"io"
-	"strings"
 )
 
 type NullableInt struct {
@@ -14,11 +12,12 @@ type NullableInt struct {
 type SelectStatement struct {
 	Table string
 
-	JoinClauses   []JoinClause
-	SelectClauses []Marker
-	WhereClause   PredicateClause
-	GroupByClause []Marker
-	HavingClause  PredicateClause
+	JoinClauses    []JoinClause
+	OrderByClauses []OrderByClause
+	SelectClauses  []Marker
+	WhereClause    PredicateClause
+	GroupByClause  []Marker
+	HavingClause   PredicateClause
 
 	Offset NullableInt
 	Limit  NullableInt
@@ -26,14 +25,15 @@ type SelectStatement struct {
 
 func (ss SelectStatement) Clone() SelectStatement {
 	return SelectStatement{
-		Table:         ss.Table,
-		JoinClauses:   cloneJoinClauses(ss.JoinClauses),
-		SelectClauses: cloneMarkers(ss.SelectClauses),
-		WhereClause:   clonePredicateClause(ss.WhereClause),
-		GroupByClause: cloneMarkers(ss.GroupByClause),
-		HavingClause:  clonePredicateClause(ss.HavingClause),
-		Offset:        ss.Offset,
-		Limit:         ss.Limit,
+		Table:          ss.Table,
+		JoinClauses:    cloneJoinClauses(ss.JoinClauses),
+		OrderByClauses: cloneOrderByClauses(ss.OrderByClauses),
+		SelectClauses:  cloneMarkers(ss.SelectClauses),
+		WhereClause:    clonePredicateClause(ss.WhereClause),
+		GroupByClause:  cloneMarkers(ss.GroupByClause),
+		HavingClause:   clonePredicateClause(ss.HavingClause),
+		Offset:         ss.Offset,
+		Limit:          ss.Limit,
 	}
 }
 
@@ -94,6 +94,18 @@ func (ss SelectStatement) buildQuery(vs map[string]interface{}) (string, []inter
 		}
 	}
 
+	if len(ss.OrderByClauses) > 0 {
+		qw.WriteString(" ORDER BY ")
+
+		for i, c := range ss.OrderByClauses {
+			qw.WriteString(c.ToSQL())
+
+			if i < len(ss.OrderByClauses)-1 {
+				qw.WriteString(", ")
+			}
+		}
+	}
+
 	if ss.Limit.Valid {
 		fmt.Fprintf(&qw, " LIMIT %d", ss.Limit.Int)
 	}
@@ -103,48 +115,4 @@ func (ss SelectStatement) buildQuery(vs map[string]interface{}) (string, []inter
 	}
 
 	return qw.String(), qw.vs, bindings, nil
-}
-
-type JoinType string
-
-const (
-	DefaultJoin JoinType = ""
-	InnerJoin   JoinType = "INNER"
-	OuterJoin   JoinType = "OUTER"
-)
-
-type JoinClause struct {
-	Table string
-	Type  JoinType
-
-	WhereClause PredicateClause
-}
-
-func (jc JoinClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
-	fmt.Fprintf(w, " %s JOIN %s", strings.ToUpper(string(jc.Type)), jc.Table)
-
-	if jc.WhereClause == nil {
-		return nil
-	}
-
-	io.WriteString(w, " ON ")
-	return jc.WhereClause.WriteTo(w, vs)
-}
-
-func cloneJoinClauses(jcs []JoinClause) []JoinClause {
-	if len(jcs) == 0 {
-		return nil
-	}
-
-	res := make([]JoinClause, len(jcs))
-
-	for i, jc := range jcs {
-		res[i] = JoinClause{
-			Table:       jc.Table,
-			Type:        jc.Type,
-			WhereClause: jc.WhereClause.Clone(),
-		}
-	}
-
-	return res
 }
