@@ -20,6 +20,8 @@ type UpsertStatement struct {
 
 	QueryValues []sqlbuilder.Marker
 	SetValues   []sqlbuilder.Marker
+
+	Returning *sql.Returning
 }
 
 type Upserter struct {
@@ -50,18 +52,44 @@ func (u *Upserter) PrepareUpsert(us UpsertStatement) sqlbuilder.Execer {
 			sfs: make([]string, len(us.SetValues)),
 			ss: sqlbuilder.SelectStatement{
 				Table:         us.Table,
-				SelectClauses: us.SetValues,
+				SelectClauses: append([]sqlbuilder.Marker{}, us.SetValues...),
 			},
 			us: sqlbuilder.UpdateStatement{
 				Table:  us.Table,
 				Fields: us.SetValues,
 			},
 			is: sqlbuilder.InsertStatement{
-				Table:  us.Table,
-				Fields: make([]sqlbuilder.Marker, len(us.QueryValues)+len(us.SetValues)),
+				Table: us.Table,
+				Fields: make(
+					[]sqlbuilder.Marker,
+					len(us.QueryValues)+len(us.SetValues),
+				),
+				Returning: us.Returning,
 			},
 		}
 	)
+
+	if r := us.Returning; r != nil {
+		var (
+			found bool
+			m     sqlbuilder.Marker
+		)
+
+		for _, v := range ue.ss.SelectClauses {
+			if v.ToSQL() == r.Field {
+				found = true
+				m = v
+				break
+			}
+		}
+
+		if !found {
+			m = sqlbuilder.Column(r.Field)
+			ue.ss.SelectClauses = append(ue.ss.SelectClauses, m)
+		}
+
+		ue.returningMarker = m
+	}
 
 	for i, qv := range us.QueryValues {
 		clauses[i] = sqlbuilder.Eq(qv)
@@ -85,6 +113,8 @@ func (u *Upserter) PrepareUpsert(us UpsertStatement) sqlbuilder.Execer {
 type upsertExecer struct {
 	u *Upserter
 
+	returningMarker sqlbuilder.Marker
+
 	qfs []string
 	sfs []string
 
@@ -95,7 +125,8 @@ type upsertExecer struct {
 
 func (ue *upsertExecer) Exec(ctx context.Context, vs map[string]interface{}) (sql.Result, error) {
 	var (
-		res sql.Result
+		res    sql.Result
+		lastID int64
 
 		existing = make(map[string]interface{})
 		qvs      = make(map[string]interface{})
@@ -121,6 +152,10 @@ func (ue *upsertExecer) Exec(ctx context.Context, vs map[string]interface{}) (sq
 		existing[f] = reflect.New(reflect.TypeOf(v)).Interface()
 	}
 
+	if m := ue.returningMarker; m != nil {
+		existing[m.Binding()] = &lastID
+	}
+
 	return res, sql.ExecuteTx(ctx, ue.u, func(q sql.Queryer) error {
 		var (
 			err error
@@ -144,10 +179,19 @@ func (ue *upsertExecer) Exec(ctx context.Context, vs map[string]interface{}) (sq
 
 			if pristine {
 				res = driver.RowsAffected(0)
+
+				if ue.returningMarker != nil {
+					res = lastIDResult{Result: res, id: lastID}
+				}
+
 				return sql.ErrRollback
 			}
 
 			res, err = qb.PrepareUpdate(ue.us).Exec(ctx, vs)
+
+			if err == nil && ue.returningMarker != nil {
+				res = lastIDResult{Result: res, id: lastID}
+			}
 		case sql.ErrNoRows:
 			res, err = qb.PrepareInsert(ue.is).Exec(ctx, vs)
 		default:
@@ -156,3 +200,11 @@ func (ue *upsertExecer) Exec(ctx context.Context, vs map[string]interface{}) (sq
 		return err
 	})
 }
+
+type lastIDResult struct {
+	sql.Result
+
+	id int64
+}
+
+func (lir lastIDResult) LastInsertId() (int64, error) { return lir.id, nil }

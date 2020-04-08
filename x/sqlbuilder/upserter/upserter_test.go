@@ -13,29 +13,37 @@ import (
 	"github.com/upfluence/sql/x/sqlbuilder"
 )
 
-func buildMigrator(db sql.DB) migration.Migrator {
-	return migration.NewMigrator(
-		db,
-		migration.NewStaticSource(
-			[]string{"1_initial.up.sql", "1_initial.down.sql"},
-			migration.StaticFetcher(
-				func(n string) ([]byte, error) {
-					switch n {
-					case "1_initial.up.sql":
-						return []byte("CREATE TABLE foo (x TEXT, y TEXT, z TEXT)"), nil
-					case "1_initial.down.sql":
-						return []byte("DROP TABLE foo"), nil
-					default:
-						return nil, migration.ErrNotExist
-					}
-				},
+func buildMigrator(ms map[string]string) func(sql.DB) migration.Migrator {
+	return func(db sql.DB) migration.Migrator {
+		var fs []string
+
+		for f := range ms {
+			fs = append(fs, f)
+		}
+
+		return migration.NewMigrator(
+			db,
+			migration.NewStaticSource(
+				fs,
+				migration.StaticFetcher(
+					func(n string) ([]byte, error) {
+						m, ok := ms[n]
+
+						if !ok {
+							return nil, migration.ErrNotExist
+						}
+
+						return []byte(m), nil
+					},
+				),
+				log.NewLogger(),
 			),
-			log.NewLogger(),
-		),
-	)
+		)
+	}
 }
 
-func assertResult(t *testing.T, res sql.Result, nn int64) {
+func assertResultAffected(t *testing.T, res sql.Result, nn int64) {
+	t.Helper()
 	n, err := res.RowsAffected()
 
 	if err != nil {
@@ -47,9 +55,29 @@ func assertResult(t *testing.T, res sql.Result, nn int64) {
 	}
 }
 
-func TestUpserter(t *testing.T) {
+func assertResultInsertedID(t *testing.T, res sql.Result, nn int64) {
+	t.Helper()
+	n, err := res.LastInsertId()
+
+	if err != nil {
+		t.Errorf("LastInsertId() = (_, %v) [ want nil ]", err)
+	}
+
+	if n != nn {
+		t.Errorf("LastInsertId() = (%d, nil) [ want (%d, nil) ]", n, nn)
+	}
+}
+
+func TestUpserterRegular(t *testing.T) {
 	sqltest.NewTestCase(
-		sqltest.WithMigratorFunc(buildMigrator),
+		sqltest.WithMigratorFunc(
+			buildMigrator(
+				map[string]string{
+					"1_initial.up.sql":   "CREATE TABLE foo (x TEXT, y TEXT, z TEXT)",
+					"1_initial.down.sql": "DROP TABLE foo",
+				},
+			),
+		),
 	).Run(t, func(t *testing.T, db sql.DB) {
 		ctx := context.Background()
 		u := Upserter{DB: db}
@@ -73,7 +101,7 @@ func TestUpserter(t *testing.T) {
 			t.Fatalf("Exec() = %v [ want nil ]", err)
 		}
 
-		assertResult(t, res, 1)
+		assertResultAffected(t, res, 1)
 
 		res, err = e.Exec(
 			ctx,
@@ -84,7 +112,7 @@ func TestUpserter(t *testing.T) {
 			t.Fatalf("Exec() = %v [ want nil ]", err)
 		}
 
-		assertResult(t, res, 0)
+		assertResultAffected(t, res, 0)
 
 		res, err = e.Exec(
 			ctx,
@@ -95,6 +123,79 @@ func TestUpserter(t *testing.T) {
 			t.Fatalf("Exec() = %v [ want nil ]", err)
 		}
 
-		assertResult(t, res, 1)
+		assertResultAffected(t, res, 1)
+	})
+}
+
+func TestUpserterReturning(t *testing.T) {
+	sqltest.NewTestCase(
+		sqltest.WithMigratorFunc(
+			buildMigrator(
+				map[string]string{
+					"1_initial.up.sqlite3":  "CREATE TABLE foo (x INTEGER PRIMARY KEY AUTOINCREMENT, y TEXT, z TEXT)",
+					"1_initial.up.postgres": "CREATE TABLE foo (x SERIAL PRIMARY KEY, y TEXT, z TEXT)",
+					"1_initial.down.sql":    "DROP TABLE foo",
+				},
+			),
+		),
+	).Run(t, func(t *testing.T, db sql.DB) {
+		ctx := context.Background()
+		u := Upserter{DB: db}
+		e := u.PrepareUpsert(
+			UpsertStatement{
+				Table:       "foo",
+				QueryValues: []sqlbuilder.Marker{sqlbuilder.Column("y")},
+				SetValues:   []sqlbuilder.Marker{sqlbuilder.Column("z")},
+				Returning:   &sql.Returning{Field: "x"},
+			},
+		)
+
+		res, err := e.Exec(
+			ctx,
+			map[string]interface{}{"y": "bar", "z": "buz"},
+		)
+
+		if err != nil {
+			t.Fatalf("Exec() = %v [ want nil ]", err)
+		}
+
+		assertResultAffected(t, res, 1)
+		assertResultInsertedID(t, res, 1)
+
+		res, err = e.Exec(
+			ctx,
+			map[string]interface{}{"y": "bar", "z": "buz"},
+		)
+
+		if err != nil {
+			t.Fatalf("Exec() = %v [ want nil ]", err)
+		}
+
+		assertResultAffected(t, res, 0)
+		assertResultInsertedID(t, res, 1)
+
+		res, err = e.Exec(
+			ctx,
+			map[string]interface{}{"y": "bar", "z": "biz"},
+		)
+
+		if err != nil {
+			t.Fatalf("Exec() = %v [ want nil ]", err)
+		}
+
+		assertResultAffected(t, res, 1)
+		assertResultInsertedID(t, res, 1)
+
+		res, err = e.Exec(
+			ctx,
+			map[string]interface{}{"y": "barz", "z": "buz"},
+		)
+
+		if err != nil {
+			t.Fatalf("Exec() = %v [ want nil ]", err)
+		}
+
+		assertResultAffected(t, res, 1)
+		assertResultInsertedID(t, res, 2)
 	})
 }
