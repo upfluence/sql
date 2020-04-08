@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/upfluence/sql"
 )
 
 func TestInsertQuery(t *testing.T) {
@@ -41,6 +42,17 @@ func TestInsertQuery(t *testing.T) {
 			},
 			vs:  map[string]interface{}{"buz": 1},
 			err: ErrMissingKey{Key: "biz"},
+		},
+		{
+			name: "with returning key",
+			is: InsertStatement{
+				Table:     "foo",
+				Fields:    []Marker{Column("buz")},
+				Returning: &sql.Returning{Field: "bar"},
+			},
+			vs:   map[string]interface{}{"buz": 1},
+			stmt: "INSERT INTO foo(buz) VALUES ($1)",
+			args: []interface{}{1, &sql.Returning{Field: "bar"}},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

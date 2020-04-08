@@ -3,16 +3,32 @@ package sqlbuilder
 import (
 	"fmt"
 	"strings"
+
+	"github.com/upfluence/sql"
 )
 
 type InsertStatement struct {
 	Table string
 
 	Fields []Marker
+
+	Returning *sql.Returning
 }
 
 func (is InsertStatement) Clone() InsertStatement {
-	return InsertStatement{Table: is.Table, Fields: cloneMarkers(is.Fields)}
+	var r *sql.Returning
+
+	if is.Returning != nil {
+		rr := *is.Returning
+
+		r = &rr
+	}
+
+	return InsertStatement{
+		Table:     is.Table,
+		Fields:    cloneMarkers(is.Fields),
+		Returning: r,
+	}
 }
 
 func (is InsertStatement) buildQuery(qvs map[string]interface{}) (string, []interface{}, error) {
@@ -59,6 +75,10 @@ func (is InsertStatement) buildQuery(qvs map[string]interface{}) (string, []inte
 		}
 
 		vs[i] = v
+	}
+
+	if is.Returning != nil {
+		vs = append(vs, is.Returning)
 	}
 
 	return b.String(), vs, nil
