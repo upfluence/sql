@@ -155,11 +155,7 @@ func wrapErr(err error) error {
 
 	sqlErr, ok := err.(sqlite3.Error)
 
-	if !ok {
-		return err
-	}
-
-	if sqlErr.Code != sqlite3.ErrConstraint {
+	if !ok || sqlErr.Code != sqlite3.ErrConstraint {
 		return err
 	}
 
