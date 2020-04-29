@@ -1,8 +1,13 @@
-hash: 85f1a6b0b65db390347ebf2a73a96996e734e31b2b2d4ee36922a59aa9ee1696
-updated: 2020-03-29T16:38:58.449402-04:00
+hash: 0ee5e82b79fba3e6b21c60ea3ceed69981b5e0207898a300b3d275271b95aa7f
+updated: 2020-04-29T16:43:19.405959-04:00
 imports:
+- name: github.com/lib/pq
+  version: 11720195feb4140252d89ec87e6ec66810ca708b
+  subpackages:
+  - oid
+  - scram
 - name: github.com/mattn/go-sqlite3
-  version: 590d44c02bca83987d23f6eab75e6d0ddf95f644
+  version: 98a44bcf5949f178c8116fa30e62c9ac2ef65927
 - name: github.com/pkg/errors
   version: 614d223910a179a466c1767a985424175c39b465
 - name: github.com/upfluence/log
@@ -11,7 +16,7 @@ imports:
   - record
   - sink
 - name: github.com/upfluence/pkg
-  version: 04f48ae1e1fb88cffc05d5812d958e72570f6ad0
+  version: af590dab278947ba8a30a943248d03021eca28eb
   subpackages:
   - log
   - multierror
