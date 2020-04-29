@@ -25,7 +25,7 @@ func (tl testLogger) Log(ot logger.OpType, q string, vs []interface{}, d time.Du
 	fmt.Fprintf(&b, "[OpType: %s] [Duration: %s] ", ot, d.String())
 
 	for i, v := range vs {
-		fmt.Fprintf(&b, "[$%d: %v] ", i, v)
+		fmt.Fprintf(&b, "[$%d: %v] ", i+1, v)
 	}
 
 	b.WriteString(q)
@@ -34,6 +34,8 @@ func (tl testLogger) Log(ot logger.OpType, q string, vs []interface{}, d time.Du
 }
 
 func buildPostgres(t testing.TB) (sqlutil.Option, func()) {
+	t.Helper()
+
 	dsn := os.Getenv("POSTGRES_URL")
 
 	if dsn == "" {
@@ -46,6 +48,8 @@ func buildPostgres(t testing.TB) (sqlutil.Option, func()) {
 }
 
 func buildSQLite(t testing.TB) (sqlutil.Option, func()) {
+	t.Helper()
+
 	tmpfile, err := ioutil.TempFile("", "example")
 
 	if err != nil {
@@ -61,6 +65,8 @@ func buildSQLite(t testing.TB) (sqlutil.Option, func()) {
 
 func defaultTestCaseFunc(t testing.TB) []dbCase {
 	var cs []dbCase
+
+	t.Helper()
 
 	for n, fn := range map[string]func(testing.TB) (sqlutil.Option, func()){
 		"postgres": buildPostgres,
@@ -117,6 +123,8 @@ func NewTestCase(opts ...TestCaseOption) *TestCase {
 }
 
 func (tc *TestCase) Run(t *testing.T, fn func(t *testing.T, db sql.DB)) {
+	t.Helper()
+
 	for _, dbc := range tc.dbfn(t) {
 		db, clean := dbc.db, dbc.clean
 
