@@ -3,6 +3,7 @@ package sqlutil
 import (
 	stdsql "database/sql"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/upfluence/sql"
@@ -10,7 +11,6 @@ import (
 	"github.com/upfluence/sql/backend/replication"
 	"github.com/upfluence/sql/backend/roundrobin"
 	"github.com/upfluence/sql/backend/simple"
-	"github.com/upfluence/sql/backend/sqlite3"
 	"github.com/upfluence/sql/sqlparser"
 )
 
@@ -18,7 +18,12 @@ var (
 	defaultOptions = &builder{parser: sqlparser.DefaultSQLParser()}
 
 	ErrNoDBProvided = errors.New("sql/sqlutil: No DB provided")
+
+	driverWrapperMu = &sync.Mutex{}
+	driverWrapper   = map[string]driverWrapperFunc{"postgres": postgres.NewDB}
 )
+
+type driverWrapperFunc func(sql.DB, sqlparser.SQLParser) sql.DB
 
 type DBOption func(*dbInput)
 
@@ -79,11 +84,8 @@ func (i *dbInput) buildDB(p sqlparser.SQLParser) (sql.DB, error) {
 
 	db := simple.FromStdDB(plainDB, i.driver)
 
-	switch i.driver {
-	case "postgres":
-		db = postgres.NewDB(db, p)
-	case "sqlite3":
-		db = sqlite3.NewDB(db)
+	if wfn, ok := driverWrapper[i.driver]; ok {
+		db = wfn(db, p)
 	}
 
 	return db, nil

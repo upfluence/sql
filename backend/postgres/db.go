@@ -149,3 +149,8 @@ type cursor struct {
 func (c *cursor) Scan(vs ...interface{}) error {
 	return wrapErr(c.Cursor.Scan(vs...))
 }
+
+func IsPostgresDB(d sql.DB) bool {
+	_, ok := d.(*db)
+	return ok
+}

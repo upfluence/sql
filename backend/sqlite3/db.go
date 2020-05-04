@@ -174,3 +174,8 @@ func wrapErr(err error) error {
 
 	return werr
 }
+
+func IsSQLite3DB(d sql.DB) bool {
+	_, ok := d.(*db)
+	return ok
+}
