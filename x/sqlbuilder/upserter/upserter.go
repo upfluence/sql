@@ -18,8 +18,9 @@ var (
 type UpsertStatement struct {
 	Table string
 
-	QueryValues []sqlbuilder.Marker
-	SetValues   []sqlbuilder.Marker
+	QueryValues  []sqlbuilder.Marker
+	InsertValues []sqlbuilder.Marker
+	SetValues    []sqlbuilder.Marker
 
 	Returning *sql.Returning
 }
@@ -62,7 +63,7 @@ func (u *Upserter) PrepareUpsert(us UpsertStatement) sqlbuilder.Execer {
 				Table: us.Table,
 				Fields: make(
 					[]sqlbuilder.Marker,
-					len(us.QueryValues)+len(us.SetValues),
+					len(us.QueryValues)+len(us.SetValues)+len(us.InsertValues),
 				),
 				Returning: us.Returning,
 			},
@@ -100,6 +101,10 @@ func (u *Upserter) PrepareUpsert(us UpsertStatement) sqlbuilder.Execer {
 	for i, sv := range us.SetValues {
 		ue.sfs[i] = sv.Binding()
 		ue.is.Fields[len(us.QueryValues)+i] = sv
+	}
+
+	for i, iv := range us.InsertValues {
+		ue.is.Fields[len(us.QueryValues)+len(us.SetValues)+i] = iv
 	}
 
 	clause := sqlbuilder.And(clauses...)
