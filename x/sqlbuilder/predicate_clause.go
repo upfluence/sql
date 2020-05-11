@@ -46,33 +46,36 @@ type StaticValuePredicateClause interface {
 }
 
 type staticClause struct {
-	m  Marker
-	v  interface{}
-	fn func(QueryWriter, interface{}, string) error
+	pc PredicateClause
+	vs map[string]interface{}
 }
 
 func (sc *staticClause) Clone() StaticValuePredicateClause {
-	return &staticClause{
-		m:  sc.m.Clone(),
-		v:  sc.v,
-		fn: sc.fn,
+	vs := make(map[string]interface{}, len(sc.vs))
+
+	for k, v := range sc.vs {
+		vs[k] = v
 	}
+
+	return &staticClause{pc: sc.pc.Clone(), vs: vs}
 }
 
 func (sc *staticClause) WriteTo(w QueryWriter) error {
-	return sc.fn(w, sc.v, sc.m.ToSQL())
+	return sc.pc.WriteTo(w, sc.vs)
+}
+
+func Static(pc PredicateClause, vs map[string]interface{}) PredicateClause {
+	return &staticValuePredicateClauseWrapper{
+		svpc: &staticClause{pc: pc, vs: vs},
+	}
 }
 
 func StaticIn(m Marker, v interface{}) PredicateClause {
-	return &staticValuePredicateClauseWrapper{
-		svpc: &staticClause{m: m, v: v, fn: writeInClause},
-	}
+	return Static(In(m), map[string]interface{}{m.Binding(): v})
 }
 
 func StaticEq(m Marker, v interface{}) PredicateClause {
-	return &staticValuePredicateClauseWrapper{
-		svpc: &staticClause{m: m, v: v, fn: writeSignClause("=")},
-	}
+	return Static(Eq(m), map[string]interface{}{m.Binding(): v})
 }
 
 type staticValuePredicateClauseWrapper struct {
