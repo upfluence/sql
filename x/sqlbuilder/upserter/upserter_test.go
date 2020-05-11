@@ -199,3 +199,62 @@ func TestUpserterReturning(t *testing.T) {
 		assertResultInsertedID(t, res, 2)
 	})
 }
+
+func TestUpserterInsertValue(t *testing.T) {
+	sqltest.NewTestCase(
+		sqltest.WithMigratorFunc(
+			buildMigrator(
+				map[string]string{
+					"1_initial.up.sql":   "CREATE TABLE foo (x TEXT, y TEXT, z TEXT)",
+					"1_initial.down.sql": "DROP TABLE foo",
+				},
+			),
+		),
+	).Run(t, func(t *testing.T, db sql.DB) {
+		ctx := context.Background()
+		u := Upserter{DB: db}
+		e := u.PrepareUpsert(
+			UpsertStatement{
+				Table:        "foo",
+				QueryValues:  []sqlbuilder.Marker{sqlbuilder.Column("x")},
+				SetValues:    []sqlbuilder.Marker{sqlbuilder.Column("z")},
+				InsertValues: []sqlbuilder.Marker{sqlbuilder.Column("y")},
+			},
+		)
+
+		_, err := e.Exec(
+			ctx,
+			map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+		)
+
+		if err != nil {
+			t.Fatalf("Exec() = %v [ want nil ]", err)
+		}
+
+		_, err = e.Exec(
+			ctx,
+			map[string]interface{}{"x": "foo", "y": "far", "z": "fuz"},
+		)
+
+		if err != nil {
+			t.Fatalf("Exec() = %v [ want nil ]", err)
+		}
+
+		var y, z string
+
+		if err := db.QueryRow(ctx, "SELECT y, z FROM foo WHERE x = $1", "foo").Scan(
+			&y,
+			&z,
+		); err != nil {
+			t.Fatalf("QueryRow() = _, %v [ want nil ]", err)
+		}
+
+		if y != "bar" {
+			t.Errorf("y = %q  [ want \"bar\" ]", y)
+		}
+
+		if z != "fuz" {
+			t.Errorf("z = %q  [ want \"fuz\" ]", z)
+		}
+	})
+}
