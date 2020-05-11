@@ -258,3 +258,47 @@ func TestUpserterInsertValue(t *testing.T) {
 		}
 	})
 }
+
+func TestUpserterOnlyQueryValues(t *testing.T) {
+	sqltest.NewTestCase(
+		sqltest.WithMigratorFunc(
+			buildMigrator(
+				map[string]string{
+					"1_initial.up.sql":   "CREATE TABLE foo (x TEXT)",
+					"1_initial.down.sql": "DROP TABLE foo",
+				},
+			),
+		),
+	).Run(t, func(t *testing.T, db sql.DB) {
+		ctx := context.Background()
+		u := Upserter{DB: db}
+		e := u.PrepareUpsert(
+			UpsertStatement{
+				Table:       "foo",
+				QueryValues: []sqlbuilder.Marker{sqlbuilder.Column("x")},
+			},
+		)
+
+		res, err := e.Exec(
+			ctx,
+			map[string]interface{}{"x": "foo"},
+		)
+
+		if err != nil {
+			t.Fatalf("Exec() = %v [ want nil ]", err)
+		}
+
+		assertResultAffected(t, res, 1)
+
+		res, err = e.Exec(
+			ctx,
+			map[string]interface{}{"x": "foo"},
+		)
+
+		if err != nil {
+			t.Fatalf("Exec() = %v [ want nil ]", err)
+		}
+
+		assertResultAffected(t, res, 0)
+	})
+}

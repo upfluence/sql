@@ -12,7 +12,8 @@ import (
 
 var (
 	errNoQueryValues = errors.New("x/sqlbuilder: No QueryValue marker given")
-	errNoSetValues   = errors.New("x/sqlbuilder: No SetValue marker given")
+
+	oneMarker = sqlbuilder.SQLExpression("one", "1")
 )
 
 type UpsertStatement struct {
@@ -40,10 +41,6 @@ func (u *Upserter) PrepareUpsert(us UpsertStatement) sqlbuilder.Execer {
 		return errExecer{errNoQueryValues}
 	}
 
-	if len(us.SetValues) == 0 {
-		return errExecer{errNoSetValues}
-	}
-
 	var (
 		clauses = make([]sqlbuilder.PredicateClause, len(us.QueryValues))
 
@@ -53,7 +50,7 @@ func (u *Upserter) PrepareUpsert(us UpsertStatement) sqlbuilder.Execer {
 			sfs: make([]string, len(us.SetValues)),
 			ss: sqlbuilder.SelectStatement{
 				Table:         us.Table,
-				SelectClauses: append([]sqlbuilder.Marker{}, us.SetValues...),
+				SelectClauses: append([]sqlbuilder.Marker{oneMarker}, us.SetValues...),
 			},
 			us: sqlbuilder.UpdateStatement{
 				Table:  us.Table,
@@ -132,8 +129,9 @@ func (ue *upsertExecer) Exec(ctx context.Context, vs map[string]interface{}) (sq
 	var (
 		res    sql.Result
 		lastID int64
+		one    int64
 
-		existing = make(map[string]interface{})
+		existing = map[string]interface{}{"one": &one}
 		qvs      = make(map[string]interface{})
 	)
 
