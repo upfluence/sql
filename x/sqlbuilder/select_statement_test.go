@@ -113,7 +113,31 @@ func TestSelectQuery(t *testing.T) {
 				WhereClause:   And(),
 			},
 			vs:   map[string]interface{}{"foo": 1, "biz": 2},
-			stmt: "SELECT bar FROM foo WHERE 1=0",
+			stmt: "SELECT bar FROM foo",
+		},
+		{
+			name: "and with nil",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   And(nil, nil, PlainSQLPredicate("foo IS NULL")),
+			},
+			vs:   map[string]interface{}{"foo": 1, "biz": 2},
+			stmt: "SELECT bar FROM foo WHERE foo IS NULL",
+		},
+		{
+			name: "and flatten",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause: And(
+					And(Eq(Column("foo")), PlainSQLPredicate("foo IS NULL")),
+					Eq(Column("biz")),
+				),
+			},
+			vs:   map[string]interface{}{"foo": 1, "biz": 2},
+			stmt: "SELECT bar FROM foo WHERE (foo = $1) AND (foo IS NULL) AND (biz = $2)",
+			args: []interface{}{1, 2},
 		},
 		{
 			name: "empty in",

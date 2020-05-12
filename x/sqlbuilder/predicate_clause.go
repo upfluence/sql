@@ -129,12 +129,38 @@ type multiClause struct {
 	op string
 }
 
+func wrapMultiClause(wcs []PredicateClause, op string) PredicateClause {
+	var cs []PredicateClause
+
+	for _, wc := range wcs {
+		if wc == nil {
+			continue
+		}
+
+		if mc, ok := wc.(multiClause); ok && mc.op == op {
+			cs = append(cs, mc.wcs...)
+			continue
+		}
+
+		cs = append(cs, wc)
+	}
+
+	switch len(cs) {
+	case 0:
+		return nil
+	case 1:
+		return cs[0]
+	default:
+		return multiClause{wcs: cs, op: op}
+	}
+}
+
 func And(wcs ...PredicateClause) PredicateClause {
-	return multiClause{wcs: wcs, op: "AND"}
+	return wrapMultiClause(wcs, "AND")
 }
 
 func Or(wcs ...PredicateClause) PredicateClause {
-	return multiClause{wcs: wcs, op: "OR"}
+	return wrapMultiClause(wcs, "OR")
 }
 
 func (mc multiClause) Clone() PredicateClause {
