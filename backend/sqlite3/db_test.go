@@ -26,6 +26,10 @@ func TestQueryer(t *testing.T) {
 			out: static.Query{Query: "?, ?, ?", Args: []interface{}{1, 2, 3}},
 		},
 		{
+			in:  static.Query{Query: "$2, $3, $1", Args: []interface{}{1, 2, 3}},
+			out: static.Query{Query: "?, ?, ?", Args: []interface{}{2, 3, 1}},
+		},
+		{
 			in:  static.Query{Query: "$2, $1, $3", Args: []interface{}{1, 2, 3}},
 			out: static.Query{Query: "?, ?, ?", Args: []interface{}{2, 1, 3}},
 		},

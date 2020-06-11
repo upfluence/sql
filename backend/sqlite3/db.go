@@ -142,7 +142,7 @@ func (q *queryer) rewrite(stmt string, vs []interface{}) (string, []interface{},
 			return "", nil, ErrInvalidArgsNumber
 		}
 
-		rvs[k-1] = vs[i]
+		rvs[i] = vs[k-1]
 	}
 
 	return rstmt, rvs, nil
