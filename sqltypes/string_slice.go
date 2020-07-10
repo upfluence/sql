@@ -1,47 +1,64 @@
 package sqltypes
 
 import (
+	"bytes"
 	"database/sql/driver"
+	"encoding/csv"
 	"fmt"
+	"io"
 	"strings"
 )
 
 type StringSlice struct {
 	Strings []string
-	Valid   bool
 }
 
-func (n StringSlice) Value() (driver.Value, error) {
-	if len(n.Strings) == 0 {
+func (ss *StringSlice) Scan(v interface{}) error {
+	if v == nil {
+		ss.Strings = nil
+	}
+
+	var r io.Reader
+
+	switch vv := v.(type) {
+	case string:
+		r = strings.NewReader(vv)
+	case []byte:
+		r = bytes.NewReader(vv)
+	case nil:
+		ss.Strings = nil
+		return nil
+	default:
+		return fmt.Errorf("Unsupported %T type to assign to a StringSlice", v)
+	}
+
+	var err error
+
+	ss.Strings, err = csv.NewReader(r).Read()
+
+	return err
+}
+
+func (ss StringSlice) Value() (driver.Value, error) {
+	if len(ss.Strings) == 0 {
 		return nil, nil
 	}
 
-	return strings.Join(n.Strings, ","), nil
-}
+	var (
+		buf bytes.Buffer
 
-func (n *StringSlice) Scan(src interface{}) error {
-	if src == nil {
-		n.Valid = false
-		return nil
+		w  = csv.NewWriter(&buf)
+	)
+
+	if err := w.Write(ss.Strings); err != nil {
+		return nil, err
 	}
 
-	if err := n.convertValue(src); err != nil {
-		return err
+	w.Flush()
+
+	if res := buf.String(); len(res) > 1 {
+		return res[:len(res)-1], nil
 	}
 
-	n.Valid = true
-	return nil
-}
-
-func (n *StringSlice) convertValue(src interface{}) error {
-	switch vv := src.(type) {
-	case string:
-		n.Strings = strings.Split(vv, ",")
-	case []byte:
-		n.Strings = strings.Split(string(vv), ",")
-	default:
-		return fmt.Errorf("invalid type parsed: %T", src)
-	}
-
-	return nil
+	return nil, nil
 }
