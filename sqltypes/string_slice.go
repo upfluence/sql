@@ -7,21 +7,27 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/pkg/errors"
 )
+
+var errInvalidType = errors.New("unsupported type to assign to a StringSlice")
 
 type StringSlice struct {
 	Strings []string
+	Valid bool
 }
 
 func (ss *StringSlice) Scan(v interface{}) error {
-	if v == nil {
-		ss.Strings = nil
-	}
-
 	var r io.Reader
 
 	switch vv := v.(type) {
 	case string:
+		if vv == "" {
+			ss.Strings = []string{}
+			return nil
+		}
+
 		r = strings.NewReader(vv)
 	case []byte:
 		r = bytes.NewReader(vv)
@@ -29,7 +35,7 @@ func (ss *StringSlice) Scan(v interface{}) error {
 		ss.Strings = nil
 		return nil
 	default:
-		return fmt.Errorf("Unsupported %T type to assign to a StringSlice", v)
+		return errors.Wrap(errInvalidType, fmt.Sprintf("%T", v))
 	}
 
 	var err error
@@ -40,8 +46,12 @@ func (ss *StringSlice) Scan(v interface{}) error {
 }
 
 func (ss StringSlice) Value() (driver.Value, error) {
-	if len(ss.Strings) == 0 {
+	if !ss.Valid {
 		return nil, nil
+	}
+
+	if len(ss.Strings) == 0 {
+		return "", nil
 	}
 
 	var (
@@ -60,5 +70,5 @@ func (ss StringSlice) Value() (driver.Value, error) {
 		return res[:len(res)-1], nil
 	}
 
-	return nil, nil
+	return "", nil
 }
