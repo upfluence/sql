@@ -14,6 +14,12 @@ type Pagination struct {
 	Limit  int
 }
 
+type ReadOptions struct {
+	SelectClauses []sqlbuilder.Marker
+	GroupByClause []sqlbuilder.Marker
+	HavingClause  sqlbuilder.PredicateClause
+}
+
 type Reader interface {
 	// WithPredicateClauses: It will apply the given predicate clauses to the
 	// SQL request in conjunction with the predicate clauses defined in the legacy
@@ -26,7 +32,7 @@ type Reader interface {
 	// WithOrdering: Overwrites the ordering setting with the attribute
 	WithOrdering(sqlbuilder.OrderByClause) Reader
 
-	Read(context.Context, []sqlbuilder.Marker) (sqlbuilder.Cursor, error)
+	Read(context.Context, ReadOptions) (sqlbuilder.Cursor, error)
 }
 
 func RootReader(q sql.Queryer, table string) Reader {
@@ -60,10 +66,12 @@ func (r reader) WithOrdering(obc sqlbuilder.OrderByClause) Reader {
 	return reader{pr: &withOrderingReader{parentReader: r.pr, obc: obc}}
 }
 
-func (r reader) Read(ctx context.Context, ms []sqlbuilder.Marker) (sqlbuilder.Cursor, error) {
+func (r reader) Read(ctx context.Context, opts ReadOptions) (sqlbuilder.Cursor, error) {
 	stmt := sqlbuilder.SelectStatement{
 		Table:         r.pr.table(),
-		SelectClauses: ms,
+		SelectClauses: opts.SelectClauses,
+		GroupByClause: opts.GroupByClause,
+		HavingClause:  opts.HavingClause,
 		WhereClause:   r.pr.reducer()(r.pr.predicateClauses()...),
 	}
 

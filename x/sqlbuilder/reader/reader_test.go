@@ -44,7 +44,7 @@ func buildMigrator(ms map[string]string) func(sql.DB) migration.Migrator {
 func assertReader(t *testing.T, r Reader, ids []int64) {
 	cur, err := r.Read(
 		context.Background(),
-		[]sqlbuilder.Marker{sqlbuilder.Column("x")},
+		ReadOptions{SelectClauses: []sqlbuilder.Marker{sqlbuilder.Column("x")}},
 	)
 
 	assert.NoError(t, err)
