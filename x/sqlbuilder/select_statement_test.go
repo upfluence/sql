@@ -180,6 +180,16 @@ func TestSelectQuery(t *testing.T) {
 			args: []interface{}{"buz"},
 		},
 		{
+			name: "static like",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticLike(Column("bar"), "buz"),
+			},
+			stmt: "SELECT bar FROM foo WHERE bar LIKE $1",
+			args: []interface{}{"buz"},
+		},
+		{
 			name: "order by",
 			ss: SelectStatement{
 				Table:          "foo",

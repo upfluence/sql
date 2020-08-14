@@ -78,6 +78,10 @@ func StaticEq(m Marker, v interface{}) PredicateClause {
 	return Static(Eq(m), map[string]interface{}{m.Binding(): v})
 }
 
+func StaticLike(m Marker, v string) PredicateClause {
+	return Static(Like(m), map[string]interface{}{m.Binding(): v})
+}
+
 type staticValuePredicateClauseWrapper struct {
 	svpc StaticValuePredicateClause
 }
@@ -105,12 +109,13 @@ func (emk ErrMissingKey) Error() string {
 
 var errInvalidType = errors.New("sqlbuilder: invalid type")
 
-func Eq(m Marker) PredicateClause  { return signClause(m, "=") }
-func Ne(m Marker) PredicateClause  { return signClause(m, "!=") }
-func Lt(m Marker) PredicateClause  { return signClause(m, "<") }
-func Lte(m Marker) PredicateClause { return signClause(m, "<=") }
-func Gt(m Marker) PredicateClause  { return signClause(m, ">") }
-func Gte(m Marker) PredicateClause { return signClause(m, ">=") }
+func Eq(m Marker) PredicateClause   { return signClause(m, "=") }
+func Ne(m Marker) PredicateClause   { return signClause(m, "!=") }
+func Lt(m Marker) PredicateClause   { return signClause(m, "<") }
+func Lte(m Marker) PredicateClause  { return signClause(m, "<=") }
+func Gt(m Marker) PredicateClause   { return signClause(m, ">") }
+func Gte(m Marker) PredicateClause  { return signClause(m, ">=") }
+func Like(m Marker) PredicateClause { return signClause(m, "LIKE") }
 
 func signClause(m Marker, s string) *basicClause {
 	return &basicClause{m: m, fn: writeSignClause(s)}
