@@ -18,6 +18,9 @@ type ReadOptions struct {
 	SelectClauses []sqlbuilder.Marker
 	GroupByClause []sqlbuilder.Marker
 	HavingClause  sqlbuilder.PredicateClause
+
+	SkipPagination bool
+	SkipOrdering   bool
 }
 
 type Reader interface {
@@ -55,6 +58,10 @@ type reader struct {
 }
 
 func (r reader) WithPredicateClauses(pcs ...sqlbuilder.PredicateClause) Reader {
+	if len(pcs) == 0 {
+		return r
+	}
+
 	return reader{pr: &withPredicatesReader{parentReader: r.pr, pcs: pcs}}
 }
 
@@ -75,17 +82,16 @@ func (r reader) Read(ctx context.Context, opts ReadOptions) (sqlbuilder.Cursor, 
 		WhereClause:   r.pr.reducer()(r.pr.predicateClauses()...),
 	}
 
-	if p := r.pr.pagination(); p != zeroPagination {
+	if p := r.pr.pagination(); !opts.SkipPagination && p != zeroPagination {
 		stmt.Offset = sqlbuilder.NullableInt{Int: p.Offset, Valid: true}
 		stmt.Limit = sqlbuilder.NullableInt{Int: p.Limit, Valid: true}
 	}
 
-	if o := r.pr.ordering(); o != zeroOrdering {
+	if o := r.pr.ordering(); !opts.SkipOrdering && o != zeroOrdering {
 		stmt.OrderByClauses = []sqlbuilder.OrderByClause{o}
 	}
 
-	qb := r.pr.queryBuilder()
-	return qb.PrepareSelect(stmt).Query(ctx, nil)
+	return r.pr.queryBuilder().PrepareSelect(stmt).Query(ctx, nil)
 }
 
 type parentReader interface {
