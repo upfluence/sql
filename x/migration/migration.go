@@ -110,7 +110,7 @@ func (m *migrator) downOne(ctx context.Context) (bool, error) {
 		r, err := mi.Down(m.d)
 
 		if err != nil {
-			return errors.Wrapf(err, "cant open UP migration file for %d", mi.ID())
+			return errors.Wrapf(err, "cant open DOWN migration file for %d", mi.ID())
 		}
 
 		if errM := m.transformer.Transform(
@@ -122,7 +122,7 @@ func (m *migrator) downOne(ctx context.Context) (bool, error) {
 
 		_, err = q.Exec(ctx, m.opts.deleteMigrationStmt(), mi.ID())
 
-		return errors.Wrapf(err, "cant add migration to the table %d", mi.ID())
+		return errors.Wrapf(err, "cant remove migration from the table %d", mi.ID())
 	})
 
 	return done, err
