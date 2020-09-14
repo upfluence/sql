@@ -17,9 +17,10 @@ func Column(k string) Marker { return column(k) }
 
 type column string
 
-func (c column) Binding() string { return string(c) }
-func (c column) ToSQL() string   { return string(c) }
-func (c column) Clone() Marker   { return c }
+func (c column) ColumnName() string { return string(c) }
+func (c column) Binding() string    { return string(c) }
+func (c column) ToSQL() string      { return string(c) }
+func (c column) Clone() Marker      { return c }
 
 func SQLExpression(m, exp string) Marker { return sqlMarker{m: m, sql: exp} }
 
@@ -32,8 +33,22 @@ func (sm sqlMarker) Binding() string { return sm.m }
 func (sm sqlMarker) ToSQL() string   { return sm.sql }
 func (sm sqlMarker) Clone() Marker   { return sm }
 
+type columnWithTable struct {
+	table   string
+	column  string
+	binding string
+}
+
+func (cwt columnWithTable) ColumnName() string { return cwt.column }
+func (cwt columnWithTable) Binding() string    { return cwt.binding }
+func (cwt columnWithTable) Clone() Marker      { return cwt }
+
+func (cwt columnWithTable) ToSQL() string {
+	return fmt.Sprintf("%q.%q", cwt.table, cwt.column)
+}
+
 func ColumnWithTable(b, t, c string) Marker {
-	return sqlMarker{m: b, sql: fmt.Sprintf("%q.%q", t, c)}
+	return columnWithTable{binding: b, table: t, column: c}
 }
 
 func cloneMarkers(ms []Marker) []Marker {
@@ -48,4 +63,12 @@ func cloneMarkers(ms []Marker) []Marker {
 	}
 
 	return res
+}
+
+func columnName(m Marker) string {
+	if cn, ok := m.(interface{ ColumnName() string }); ok {
+		return cn.ColumnName()
+	}
+
+	return m.ToSQL()
 }

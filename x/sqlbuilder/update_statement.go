@@ -34,7 +34,7 @@ func (us UpdateStatement) buildQuery(vs map[string]interface{}) (string, []inter
 			return "", nil, ErrMissingKey{Key: k}
 		}
 
-		fmt.Fprintf(&qw, "%s = %s", f.ToSQL(), qw.RedeemVariable(v))
+		fmt.Fprintf(&qw, "%s = %s", columnName(f), qw.RedeemVariable(v))
 
 		if i < len(us.Fields)-1 {
 			qw.WriteString(", ")

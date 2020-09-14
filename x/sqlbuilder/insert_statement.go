@@ -46,7 +46,7 @@ func (is InsertStatement) buildQuery(qvs map[string]interface{}) (string, []inte
 	fmt.Fprintf(&b, "INSERT INTO %s(", is.Table)
 
 	for i, f := range is.Fields {
-		b.WriteString(f.ToSQL())
+		b.WriteString(columnName(f))
 
 		if i < len(is.Fields)-1 {
 			b.WriteString(", ")
