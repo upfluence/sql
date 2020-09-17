@@ -15,26 +15,26 @@ func TestNullUTCTime_Scan(t *testing.T) {
 
 	require.NoError(t, err)
 
-	for _, tt := range []struct{
-		name string
+	for _, tt := range []struct {
+		name  string
 		value interface{}
-		want time.Time
+		want  time.Time
 		errFn testutil.ErrorAssertion
-	} {
+	}{
 		{
-			name: "valid with utc",
+			name:  "valid with utc",
 			value: time.Date(2000, 1, 1, 8, 9, 10, 11, time.UTC),
-			want: time.Date(2000, 1, 1, 8, 9, 10, 00, time.UTC),
+			want:  time.Date(2000, 1, 1, 8, 9, 10, 00, time.UTC),
 			errFn: testutil.NoError(),
 		},
 		{
-			name: "valid with other zone",
+			name:  "valid with other zone",
 			value: time.Date(2000, 1, 1, 8, 9, 10, 11, gmtLocation),
-			want: time.Date(2000, 1, 1, 7, 9, 10, 00, time.UTC),
+			want:  time.Date(2000, 1, 1, 7, 9, 10, 00, time.UTC),
 			errFn: testutil.NoError(),
 		},
 		{
-			name: "invalid",
+			name:  "invalid",
 			value: "invalid",
 			errFn: func(t testing.TB, err error) {
 				assert.Contains(t, err.Error(), "unsupported Scan")
@@ -45,7 +45,7 @@ func TestNullUTCTime_Scan(t *testing.T) {
 			var n = NullUTCTime{}
 
 			tt.errFn(t, n.Scan(tt.value))
-			assert.Equal(t, tt.want, n.Time)
+			assert.Equal(t, tt.want.Unix(), n.Time.Unix())
 		})
 	}
 }
@@ -55,15 +55,15 @@ func TestNullUTCTime_Value(t *testing.T) {
 
 	require.NoError(t, err)
 
-	for _, tt := range []struct{
-		name string
+	for _, tt := range []struct {
+		name  string
 		value NullUTCTime
-		want driver.Value
-	} {
+		want  driver.Value
+	}{
 		{
 			name: "valid with utc",
 			value: NullUTCTime{
-				Time: time.Date(2000, 1, 1, 8, 9, 10, 11, time.UTC),
+				Time:  time.Date(2000, 1, 1, 8, 9, 10, 11, time.UTC),
 				Valid: true,
 			},
 			want: time.Date(2000, 1, 1, 8, 9, 10, 00, time.UTC),
@@ -71,7 +71,7 @@ func TestNullUTCTime_Value(t *testing.T) {
 		{
 			name: "invalid with value",
 			value: NullUTCTime{
-				Time: time.Date(2000, 1, 1, 8, 9, 10, 11, time.UTC),
+				Time:  time.Date(2000, 1, 1, 8, 9, 10, 11, time.UTC),
 				Valid: false,
 			},
 			want: nil,
@@ -79,7 +79,7 @@ func TestNullUTCTime_Value(t *testing.T) {
 		{
 			name: "valid with other zone",
 			value: NullUTCTime{
-				Time: time.Date(2000, 1, 1, 8, 9, 10, 11, gmtLocation),
+				Time:  time.Date(2000, 1, 1, 8, 9, 10, 11, gmtLocation),
 				Valid: true,
 			},
 			want: time.Date(2000, 1, 1, 7, 9, 10, 00, time.UTC),
