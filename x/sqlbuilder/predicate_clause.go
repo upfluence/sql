@@ -82,6 +82,22 @@ func StaticNe(m Marker, v interface{}) PredicateClause {
 	return Static(Ne(m), map[string]interface{}{m.Binding(): v})
 }
 
+func StaticGt(m Marker, v interface{}) PredicateClause {
+	return Static(Gt(m), map[string]interface{}{m.Binding(): v})
+}
+
+func StaticGte(m Marker, v interface{}) PredicateClause {
+	return Static(Gte(m), map[string]interface{}{m.Binding(): v})
+}
+
+func StaticLt(m Marker, v interface{}) PredicateClause {
+	return Static(Lt(m), map[string]interface{}{m.Binding(): v})
+}
+
+func StaticLte(m Marker, v interface{}) PredicateClause {
+	return Static(Lte(m), map[string]interface{}{m.Binding(): v})
+}
+
 func StaticLike(m Marker, v string) PredicateClause {
 	return Static(Like(m), map[string]interface{}{m.Binding(): v})
 }

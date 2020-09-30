@@ -180,6 +180,56 @@ func TestSelectQuery(t *testing.T) {
 			args: []interface{}{"buz"},
 		},
 		{
+			name: "static not eq",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticNe(Column("bar"), "buz"),
+			},
+			stmt: "SELECT bar FROM foo WHERE bar != $1",
+			args: []interface{}{"buz"},
+		},
+		{
+			name: "static greater than",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticGt(Column("bar"), "buz"),
+			},
+			stmt: "SELECT bar FROM foo WHERE bar > $1",
+			args: []interface{}{"buz"},
+		},
+		{
+			name: "static greater or equal",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticGte(Column("bar"), "buz"),
+			},
+			stmt: "SELECT bar FROM foo WHERE bar >= $1",
+			args: []interface{}{"buz"},
+		},
+		{
+			name: "static lower than",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticLt(Column("bar"), "buz"),
+			},
+			stmt: "SELECT bar FROM foo WHERE bar < $1",
+			args: []interface{}{"buz"},
+		},
+		{
+			name: "static lower or equal",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticLte(Column("bar"), "buz"),
+			},
+			stmt: "SELECT bar FROM foo WHERE bar <= $1",
+			args: []interface{}{"buz"},
+		},
+		{
 			name: "static like",
 			ss: SelectStatement{
 				Table:         "foo",
