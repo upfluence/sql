@@ -78,8 +78,20 @@ func StaticEq(m Marker, v interface{}) PredicateClause {
 	return Static(Eq(m), map[string]interface{}{m.Binding(): v})
 }
 
+func StaticNe(m Marker, v interface{}) PredicateClause {
+	return Static(Ne(m), map[string]interface{}{m.Binding(): v})
+}
+
 func StaticLike(m Marker, v string) PredicateClause {
 	return Static(Like(m), map[string]interface{}{m.Binding(): v})
+}
+
+func IsNull(m Marker) PredicateClause {
+	return PlainSQLPredicate(fmt.Sprintf("%s IS NULL", m.ToSQL()))
+}
+
+func IsNotNull(m Marker) PredicateClause {
+	return PlainSQLPredicate(fmt.Sprintf("%s IS NOT NULL", m.ToSQL()))
 }
 
 type staticValuePredicateClauseWrapper struct {

@@ -190,6 +190,15 @@ func TestSelectQuery(t *testing.T) {
 			args: []interface{}{"buz"},
 		},
 		{
+			name: "is not null",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   IsNotNull(Column("bar")),
+			},
+			stmt: "SELECT bar FROM foo WHERE bar IS NOT NULL",
+		},
+		{
 			name: "order by",
 			ss: SelectStatement{
 				Table:          "foo",
