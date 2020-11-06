@@ -2,6 +2,8 @@ package sqlbuilder
 
 import (
 	"fmt"
+
+	"github.com/upfluence/sql"
 )
 
 type NullableInt struct {
@@ -21,6 +23,8 @@ type SelectStatement struct {
 
 	Offset NullableInt
 	Limit  NullableInt
+
+	Consistency sql.Consistency
 }
 
 func (ss SelectStatement) Clone() SelectStatement {
@@ -34,6 +38,7 @@ func (ss SelectStatement) Clone() SelectStatement {
 		HavingClause:   clonePredicateClause(ss.HavingClause),
 		Offset:         ss.Offset,
 		Limit:          ss.Limit,
+		Consistency:	ss.Consistency,
 	}
 }
 
@@ -112,6 +117,10 @@ func (ss SelectStatement) buildQuery(vs map[string]interface{}) (string, []inter
 
 	if ss.Offset.Valid {
 		fmt.Fprintf(&qw, " OFFSET %d", ss.Offset.Int)
+	}
+
+	if ss.Consistency != sql.EventuallyConsistent {
+		qw.vs = append(qw.vs, ss.Consistency)
 	}
 
 	return qw.String(), qw.vs, bindings, nil

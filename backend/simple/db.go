@@ -74,7 +74,7 @@ func (tx *tx) Exec(ctx context.Context, qry string, vs ...interface{}) (sql.Resu
 	case tx.ch <- struct{}{}:
 	}
 
-	res, err := tx.q.ExecContext(ctx, qry, sql.StripReturningFields(vs)...)
+	res, err := tx.q.ExecContext(ctx, qry, sql.StripOptions(vs)...)
 	<-tx.ch
 
 	return res, err

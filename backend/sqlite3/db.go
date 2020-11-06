@@ -116,7 +116,7 @@ func (q *queryer) rewrite(stmt string, vs []interface{}) (string, []interface{},
 		i int
 	)
 
-	vs = sql.StripReturningFields(vs)
+	vs = sql.StripOptions(vs)
 
 	rstmt := argRegexp.ReplaceAllStringFunc(stmt, func(frag string) string {
 		v, err := strconv.Atoi(strings.TrimPrefix(frag, "$"))

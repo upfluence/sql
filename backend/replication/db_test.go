@@ -21,6 +21,7 @@ func TestPickDB(t *testing.T) {
 	tests := []struct {
 		name  string
 		query string
+		args  []interface{}
 		db    *db
 		want  sql.DB
 	}{
@@ -34,7 +35,6 @@ func TestPickDB(t *testing.T) {
 			},
 			want: &db1,
 		},
-
 		{
 			name:  "update",
 			query: "foo",
@@ -45,11 +45,22 @@ func TestPickDB(t *testing.T) {
 			},
 			want: &db0,
 		},
+		{
+			name:  "strongly consistent",
+			query: "foo",
+			args: []interface{}{sql.StronglyConsistent},
+			db: &db{
+				DB:     &db0,
+				slave:  &db1,
+				parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtSelect}),
+			},
+			want: &db0,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.db.pickDB(tt.query); !reflect.DeepEqual(got, tt.want) {
+			if got := tt.db.pickDB(tt.query, tt.args); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("db.pickDB() = %v, want %v", got, tt.want)
 			}
 		})
