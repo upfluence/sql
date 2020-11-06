@@ -18,7 +18,7 @@ type queryer struct {
 }
 
 func (q *queryer) Exec(ctx context.Context, qry string, vs ...interface{}) (sql.Result, error) {
-	return q.ExecContext(ctx, qry, sql.StripReturningFields(vs)...)
+	return q.ExecContext(ctx, qry, sql.StripOptions(vs)...)
 }
 
 func (q *queryer) QueryRow(ctx context.Context, qry string, vs ...interface{}) sql.Scanner {

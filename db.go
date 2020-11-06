@@ -18,6 +18,10 @@ var (
 	ErrTxDone   = sql.ErrTxDone
 )
 
+type Option interface {
+	IsSQLOption()
+}
+
 type Scanner interface {
 	Scan(...interface{}) error
 }
@@ -39,11 +43,21 @@ type Returning struct {
 	Field string
 }
 
-func StripReturningFields(vs []interface{}) []interface{} {
+func (Returning) IsSQLOption() {}
+
+type Consistency uint8
+func (Consistency) IsSQLOption() {}
+
+const (
+	EventuallyConsistent Consistency = iota
+	StronglyConsistent
+)
+
+func StripOptions(vs []interface{}) []interface{} {
 	var res []interface{}
 
 	for _, v := range vs {
-		if _, ok := v.(*Returning); !ok {
+		if _, ok := v.(Option); !ok {
 			res = append(res, v)
 		}
 	}

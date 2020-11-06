@@ -18,8 +18,8 @@ type db struct {
 	parser sqlparser.SQLParser
 }
 
-func (d *db) pickDB(q string) sql.DB {
-	if sqlparser.IsDML(d.parser.GetStatementType(q)) {
+func (d *db) pickDB(q string, vs []interface{}) sql.DB {
+	if sqlparser.IsDML(d.parser.GetStatementType(q)) || forceMaster(vs) {
 		return d.DB
 	}
 
@@ -27,9 +27,19 @@ func (d *db) pickDB(q string) sql.DB {
 }
 
 func (d *db) QueryRow(ctx context.Context, q string, vs ...interface{}) sql.Scanner {
-	return d.pickDB(q).QueryRow(ctx, q, vs...)
+	return d.pickDB(q, vs).QueryRow(ctx, q, vs...)
 }
 
 func (d *db) Query(ctx context.Context, q string, vs ...interface{}) (sql.Cursor, error) {
-	return d.pickDB(q).Query(ctx, q, vs...)
+	return d.pickDB(q, vs).Query(ctx, q, vs...)
+}
+
+func forceMaster(vs ...interface{}) bool {
+	for _, v := range vs {
+		if c, ok := v.(sql.Consistency); ok && c == sql.StronglyConsistent {
+			return true
+		}
+	}
+
+	return false
 }

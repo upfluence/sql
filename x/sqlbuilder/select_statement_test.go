@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/upfluence/sql"
 	"github.com/upfluence/sql/backend/static"
 )
 
@@ -62,7 +63,7 @@ func TestSelectQuery(t *testing.T) {
 				Table:         "foo",
 				SelectClauses: []Marker{Column("biz"), Column("buz")},
 				JoinClauses: []JoinClause{
-					JoinClause{
+					{
 						Table: "bar",
 						Type:  InnerJoin,
 						WhereClause: EqMarkers(
@@ -266,12 +267,24 @@ func TestSelectQuery(t *testing.T) {
 				SelectClauses: []Marker{Column("bar")},
 				WhereClause:   StaticEq(Column("bar"), "buz"),
 				OrderByClauses: []OrderByClause{
-					OrderByClause{Field: Column("bar")},
-					OrderByClause{Field: Column("buz"), Direction: Desc},
+					{Field: Column("bar")},
+					{Field: Column("buz"), Direction: Desc},
 				},
 			},
 			stmt: "SELECT bar FROM foo WHERE bar = $1 ORDER BY bar, buz DESC",
 			args: []interface{}{"buz"},
+		},
+		{
+			name: "consistency",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticEq(Column("bar"), "buz"),
+				Consistency:   sql.StronglyConsistent,
+			},
+			stmt: "SELECT bar FROM foo WHERE bar = $1",
+			vs:   map[string]interface{}{"bar": []int64{}},
+			args: []interface{}{"buz", sql.StronglyConsistent},
 		},
 		{
 			name: "error no marker",
