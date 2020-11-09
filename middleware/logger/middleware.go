@@ -123,7 +123,7 @@ type queryer struct {
 }
 
 func (q *queryer) logRequest(t OpType, t0 time.Time, qry string, vs []interface{}) {
-	q.l.Log(t, qry, vs, time.Since(t0))
+	q.l.Log(t, qry, sql.StripOptions(vs), time.Since(t0))
 }
 
 func (q *queryer) Exec(ctx context.Context, qry string, vs ...interface{}) (sql.Result, error) {

@@ -22,9 +22,9 @@ func (q *queryer) Exec(ctx context.Context, qry string, vs ...interface{}) (sql.
 }
 
 func (q *queryer) QueryRow(ctx context.Context, qry string, vs ...interface{}) sql.Scanner {
-	return q.QueryRowContext(ctx, qry, vs...)
+	return q.QueryRowContext(ctx, qry, sql.StripOptions(vs)...)
 }
 
 func (q *queryer) Query(ctx context.Context, qry string, vs ...interface{}) (sql.Cursor, error) {
-	return q.QueryContext(ctx, qry, vs...)
+	return q.QueryContext(ctx, qry, sql.StripOptions(vs)...)
 }
