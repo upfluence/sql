@@ -145,7 +145,7 @@ func (q *queryer) QueryRow(ctx context.Context, qry string, vs ...interface{}) s
 func (q *queryer) Query(ctx context.Context, qry string, vs ...interface{}) (sql.Cursor, error) {
 	var t0 = time.Now()
 
-	defer q.logRequest(QueryRow, t0, qry, vs)
+	defer q.logRequest(Query, t0, qry, vs)
 
 	return q.Queryer.Query(ctx, qry, vs...)
 }

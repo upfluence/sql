@@ -74,7 +74,7 @@ func (tx *tx) Exec(ctx context.Context, qry string, vs ...interface{}) (sql.Resu
 	case tx.ch <- struct{}{}:
 	}
 
-	res, err := tx.q.ExecContext(ctx, qry, vs...)
+	res, err := tx.q.Exec(ctx, qry, vs...)
 	<-tx.ch
 
 	return res, err
@@ -111,7 +111,7 @@ func (tx *tx) QueryRow(ctx context.Context, qry string, vs ...interface{}) sql.S
 	}
 
 	return &scanner{
-		s:  tx.q.QueryRowContext(ctx, qry, vs...),
+		s:  tx.q.QueryRow(ctx, qry, vs...),
 		tx: tx,
 	}
 }
@@ -137,7 +137,7 @@ func (tx *tx) Query(ctx context.Context, qry string, vs ...interface{}) (sql.Cur
 	case tx.ch <- struct{}{}:
 	}
 
-	cur, err := tx.q.QueryContext(ctx, qry, vs...)
+	cur, err := tx.q.Query(ctx, qry, vs...)
 
 	if err != nil {
 		<-tx.ch

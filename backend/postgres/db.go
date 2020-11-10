@@ -11,11 +11,6 @@ import (
 	"github.com/upfluence/sql/sqlparser"
 )
 
-type fakeResult int64
-
-func (r fakeResult) LastInsertId() (int64, error) { return int64(r), nil }
-func (fakeResult) RowsAffected() (int64, error)   { return 1, nil }
-
 type db struct {
 	*queryer
 
@@ -96,7 +91,7 @@ func (q *queryer) Exec(ctx context.Context, stmt string, vs ...interface{}) (sql
 			return nil, wrapErr(err)
 		}
 
-		return fakeResult(id), nil
+		return sql.StaticResult(id), nil
 	}
 
 	res, err := q.q.Exec(ctx, stmt, vs...)
