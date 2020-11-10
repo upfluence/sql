@@ -37,91 +37,65 @@ func TestQueryer(t *testing.T) {
 	var args = []interface{}{"bar", sql.StronglyConsistent}
 
 	for _, tt := range []struct {
-		name string
-		fn   func(t *testing.T, db sql.DB, ml *mockLogger, sdb *static.DB)
-		opts []func(sdb *static.DB)
+		op   OpType
+		call func(*testing.T, sql.DB) error
+		arg  func(static.DB) []static.Query
 	}{
 		{
-			name: "QueryRow",
-			fn: func(t *testing.T, db sql.DB, ml *mockLogger, sdb *static.DB) {
-				var scanner = db.QueryRow(context.Background(), "foo", args...)
+			op: QueryRow,
+			call: func(t *testing.T, db sql.DB) error {
+				sc := db.QueryRow(context.Background(), "foo", args...)
 
-				assert.Equal(t, sdb.QueryRowScanner, scanner)
-				assert.Equal(
-					t,
-					logEvent{op: QueryRow, qs: "foo", args: []interface{}{"bar"}},
-					ml.event,
-				)
-				assert.Equal(
-					t,
-					[]static.Query{{Query: "foo", Args: args}},
-					sdb.QueryRowQueries,
-				)
+				assert.Equal(t, &emptyScanner{}, sc)
+
+				return nil
 			},
-			opts: []func(sdb *static.DB){
-				func(sdb *static.DB) { sdb.QueryRowScanner = &emptyScanner{} },
-			},
+			arg: func(db static.DB) []static.Query { return db.QueryRowQueries },
 		},
 		{
-			name: "Exec",
-			fn: func(t *testing.T, db sql.DB, ml *mockLogger, sdb *static.DB) {
-				var res, err = db.Exec(context.Background(), "foo", args...)
+			op: Exec,
+			call: func(t *testing.T, db sql.DB) error {
+				res, err := db.Exec(context.Background(), "foo", args...)
 
-				assert.NoError(t, err)
-				assert.Equal(t, sdb.ExecResult, res)
-				assert.Equal(
-					t,
-					logEvent{op: Exec, qs: "foo", args: []interface{}{"bar"}},
-					ml.event,
-				)
-				assert.Equal(
-					t,
-					[]static.Query{{Query: "foo", Args: args}},
-					sdb.ExecQueries,
-				)
+				assert.Equal(t, sql.StaticResult(1), res)
+
+				return err
 			},
-			opts: []func(sdb *static.DB){
-				func(sdb *static.DB) { sdb.ExecResult = sql.StaticResult(1) },
-			},
+			arg: func(db static.DB) []static.Query { return db.ExecQueries },
 		},
 		{
-			name: "Query",
-			fn: func(t *testing.T, db sql.DB, ml *mockLogger, sdb *static.DB) {
-				var cursor, err = db.Query(context.Background(), "foo", args...)
+			op: Query,
+			call: func(t *testing.T, db sql.DB) error {
+				cursor, err := db.Query(context.Background(), "foo", args...)
 
-				assert.NoError(t, err)
-				assert.Equal(t, sdb.QueryScanner, cursor)
-				assert.Equal(
-					t,
-					logEvent{op: Query, qs: "foo", args: []interface{}{"bar"}},
-					ml.event,
-				)
-				assert.Equal(
-					t,
-					[]static.Query{{Query: "foo", Args: args}},
-					sdb.QueryQueries,
-				)
+				assert.Equal(t, &emptyCursor{}, cursor)
+
+				return err
 			},
-			opts: []func(sdb *static.DB){
-				func(sdb *static.DB) { sdb.QueryScanner = &emptyCursor{} },
-			},
+			arg: func(db static.DB) []static.Query { return db.QueryQueries },
 		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			executeTest(t, tt.fn, tt.opts...)
+		t.Run(string(tt.op), func(t *testing.T) {
+			var (
+				db = &static.DB{
+					Queryer: static.Queryer{
+						QueryRowScanner: &emptyScanner{},
+						QueryScanner:    &emptyCursor{},
+						ExecResult:      sql.StaticResult(1),
+					},
+				}
+				ml = &mockLogger{}
+			)
+
+			err := tt.call(t, NewFactory(ml).Wrap(db))
+			assert.NoError(t, err)
+
+			assert.Equal(
+				t,
+				logEvent{op: tt.op, qs: "foo", args: []interface{}{"bar"}},
+				ml.event,
+			)
+			assert.Equal(t, []static.Query{{Query: "foo", Args: args}}, tt.arg(*db))
 		})
 	}
-}
-
-func executeTest(t *testing.T, fn func(t *testing.T, db sql.DB, ml *mockLogger, sdb *static.DB), opts ...func(*static.DB)) {
-	var (
-		db = &static.DB{}
-		ml = &mockLogger{}
-	)
-
-	for _, opt := range opts {
-		opt(db)
-	}
-
-	fn(t, NewFactory(ml).Wrap(db), ml, db)
 }
