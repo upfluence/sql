@@ -55,7 +55,7 @@ func testQueryer(t *testing.T, qfn func(sql.DB) sql.Queryer) {
 				QueryRowScanner: &static.Scanner{
 					Args: []static.ScanArg{static.Int64Arg(2)},
 				},
-				ExecResult: fakeResult(1),
+				ExecResult: sql.StaticResult(1),
 			}
 
 			b := static.DB{Queryer: q, Tx: &static.Tx{Queryer: q}}
