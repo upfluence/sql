@@ -34,7 +34,7 @@ func (d *db) Query(ctx context.Context, q string, vs ...interface{}) (sql.Cursor
 	return d.pickDB(q, vs).Query(ctx, q, vs...)
 }
 
-func forceMaster(vs ...interface{}) bool {
+func forceMaster(vs []interface{}) bool {
 	for _, v := range vs {
 		if c, ok := v.(sql.Consistency); ok && c == sql.StronglyConsistent {
 			return true

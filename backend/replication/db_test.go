@@ -1,13 +1,27 @@
 package replication
 
 import (
-	"reflect"
+	"context"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/upfluence/sql"
 	"github.com/upfluence/sql/backend/static"
 	"github.com/upfluence/sql/sqlparser"
 )
+
+type mockDB struct {
+	static.DB
+
+	Called bool
+}
+
+func (mdb *mockDB) Query(_ context.Context, q string, vs ...interface{}) (sql.Cursor, error) {
+	mdb.Called = true
+
+	return nil, nil
+}
 
 type mockParser map[string]sqlparser.StmtType
 
@@ -16,53 +30,68 @@ func (p mockParser) GetStatementType(q string) sqlparser.StmtType {
 }
 
 func TestPickDB(t *testing.T) {
-	var db0, db1 static.DB
-
 	tests := []struct {
-		name  string
-		query string
-		args  []interface{}
-		db    *db
-		want  sql.DB
+		name   string
+		query  string
+		args   []interface{}
+		parser sqlparser.SQLParser
+		assert func(*testing.T, *db)
 	}{
 		{
-			name:  "select",
-			query: "foo",
-			db: &db{
-				DB:     &db0,
-				slave:  &db1,
-				parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtSelect}),
+			name:   "select",
+			query:  "foo",
+			parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtSelect}),
+			assert: func(t *testing.T, db *db) {
+				assertDBCalled(t, db.DB, false)
+				assertDBCalled(t, db.slave, true)
 			},
-			want: &db1,
 		},
 		{
-			name:  "update",
-			query: "foo",
-			db: &db{
-				DB:     &db0,
-				slave:  &db1,
-				parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtUpdate}),
+			name:   "update",
+			query:  "foo",
+			parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtUpdate}),
+			assert: func(t *testing.T, db *db) {
+				assertDBCalled(t, db.DB, true)
+				assertDBCalled(t, db.slave, false)
 			},
-			want: &db0,
 		},
 		{
-			name:  "strongly consistent",
-			query: "foo",
-			args: []interface{}{sql.StronglyConsistent},
-			db: &db{
-				DB:     &db0,
-				slave:  &db1,
-				parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtSelect}),
+			name:   "strongly consistent",
+			query:  "foo",
+			args:   []interface{}{sql.StronglyConsistent},
+			parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtSelect}),
+			assert: func(t *testing.T, db *db) {
+				assertDBCalled(t, db.DB, true)
+				assertDBCalled(t, db.slave, false)
 			},
-			want: &db0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.db.pickDB(tt.query, tt.args); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("db.pickDB() = %v, want %v", got, tt.want)
-			}
+			var (
+				db0, db1 mockDB
+
+				db = &db{
+					DB:     &db0,
+					slave:  &db1,
+					parser: tt.parser,
+				}
+			)
+
+			db.Query(context.Background(), tt.query, tt.args...)
+
+			tt.assert(t, db)
 		})
 	}
+}
+
+func assertDBCalled(t *testing.T, db sql.DB, v bool) {
+	var mdb, ok = db.(*mockDB)
+
+	if !ok {
+		t.Fatal("invalid db type")
+	}
+
+	assert.Equal(t, v, mdb.Called)
 }
