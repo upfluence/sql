@@ -14,11 +14,11 @@ import (
 type mockDB struct {
 	static.DB
 
-	Called bool
+	called bool
 }
 
 func (mdb *mockDB) Query(_ context.Context, q string, vs ...interface{}) (sql.Cursor, error) {
-	mdb.Called = true
+	mdb.called = true
 
 	return nil, nil
 }
@@ -31,39 +31,26 @@ func (p mockParser) GetStatementType(q string) sqlparser.StmtType {
 
 func TestPickDB(t *testing.T) {
 	tests := []struct {
-		name   string
-		query  string
-		args   []interface{}
-		parser sqlparser.SQLParser
-		assert func(*testing.T, *db)
+		name       string
+		args       []interface{}
+		stype      sqlparser.StmtType
+		wantMaster bool
 	}{
 		{
-			name:   "select",
-			query:  "foo",
-			parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtSelect}),
-			assert: func(t *testing.T, db *db) {
-				assertDBCalled(t, db.DB, false)
-				assertDBCalled(t, db.slave, true)
-			},
+			name:       "select",
+			stype:      sqlparser.StmtSelect,
+			wantMaster: false,
 		},
 		{
-			name:   "update",
-			query:  "foo",
-			parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtUpdate}),
-			assert: func(t *testing.T, db *db) {
-				assertDBCalled(t, db.DB, true)
-				assertDBCalled(t, db.slave, false)
-			},
+			name:       "update",
+			stype:      sqlparser.StmtUpdate,
+			wantMaster: true,
 		},
 		{
-			name:   "strongly consistent",
-			query:  "foo",
-			args:   []interface{}{sql.StronglyConsistent},
-			parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtSelect}),
-			assert: func(t *testing.T, db *db) {
-				assertDBCalled(t, db.DB, true)
-				assertDBCalled(t, db.slave, false)
-			},
+			name:       "strongly consistent",
+			args:       []interface{}{sql.StronglyConsistent},
+			stype:      sqlparser.StmtSelect,
+			wantMaster: true,
 		},
 	}
 
@@ -73,25 +60,17 @@ func TestPickDB(t *testing.T) {
 				db0, db1 mockDB
 
 				db = &db{
-					DB:     &db0,
-					slave:  &db1,
-					parser: tt.parser,
+					DB:    &db0,
+					slave: &db1,
+					parser: mockParser(map[string]sqlparser.StmtType{
+						"foo": tt.stype,
+					}),
 				}
 			)
 
-			db.Query(context.Background(), tt.query, tt.args...)
-
-			tt.assert(t, db)
+			db.Query(context.Background(), "foo", tt.args...)
+			assert.Equal(t, tt.wantMaster, db0.called)
+			assert.Equal(t, !tt.wantMaster, db1.called)
 		})
 	}
-}
-
-func assertDBCalled(t *testing.T, db sql.DB, v bool) {
-	var mdb, ok = db.(*mockDB)
-
-	if !ok {
-		t.Fatal("invalid db type")
-	}
-
-	assert.Equal(t, v, mdb.Called)
 }
