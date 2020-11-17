@@ -1,13 +1,27 @@
 package replication
 
 import (
-	"reflect"
+	"context"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/upfluence/sql"
 	"github.com/upfluence/sql/backend/static"
 	"github.com/upfluence/sql/sqlparser"
 )
+
+type mockDB struct {
+	static.DB
+
+	called bool
+}
+
+func (mdb *mockDB) Query(_ context.Context, q string, vs ...interface{}) (sql.Cursor, error) {
+	mdb.called = true
+
+	return nil, nil
+}
 
 type mockParser map[string]sqlparser.StmtType
 
@@ -16,53 +30,47 @@ func (p mockParser) GetStatementType(q string) sqlparser.StmtType {
 }
 
 func TestPickDB(t *testing.T) {
-	var db0, db1 static.DB
-
 	tests := []struct {
-		name  string
-		query string
-		args  []interface{}
-		db    *db
-		want  sql.DB
+		name       string
+		args       []interface{}
+		stype      sqlparser.StmtType
+		wantMaster bool
 	}{
 		{
-			name:  "select",
-			query: "foo",
-			db: &db{
-				DB:     &db0,
-				slave:  &db1,
-				parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtSelect}),
-			},
-			want: &db1,
+			name:       "select",
+			stype:      sqlparser.StmtSelect,
+			wantMaster: false,
 		},
 		{
-			name:  "update",
-			query: "foo",
-			db: &db{
-				DB:     &db0,
-				slave:  &db1,
-				parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtUpdate}),
-			},
-			want: &db0,
+			name:       "update",
+			stype:      sqlparser.StmtUpdate,
+			wantMaster: true,
 		},
 		{
-			name:  "strongly consistent",
-			query: "foo",
-			args: []interface{}{sql.StronglyConsistent},
-			db: &db{
-				DB:     &db0,
-				slave:  &db1,
-				parser: mockParser(map[string]sqlparser.StmtType{"foo": sqlparser.StmtSelect}),
-			},
-			want: &db0,
+			name:       "strongly consistent",
+			args:       []interface{}{sql.StronglyConsistent},
+			stype:      sqlparser.StmtSelect,
+			wantMaster: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.db.pickDB(tt.query, tt.args); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("db.pickDB() = %v, want %v", got, tt.want)
-			}
+			var (
+				db0, db1 mockDB
+
+				db = &db{
+					DB:    &db0,
+					slave: &db1,
+					parser: mockParser(map[string]sqlparser.StmtType{
+						"foo": tt.stype,
+					}),
+				}
+			)
+
+			db.Query(context.Background(), "foo", tt.args...)
+			assert.Equal(t, tt.wantMaster, db0.called)
+			assert.Equal(t, !tt.wantMaster, db1.called)
 		})
 	}
 }
