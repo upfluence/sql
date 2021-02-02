@@ -7,6 +7,8 @@ import (
 	"reflect"
 )
 
+var ErrMissingPredicate = errors.New("x/sqlbuilder: Missing predicate")
+
 type plainSQLPredicate string
 
 func (psp plainSQLPredicate) ToSQL() string { return string(psp) }

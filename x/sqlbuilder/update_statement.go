@@ -41,12 +41,14 @@ func (us UpdateStatement) buildQuery(vs map[string]interface{}) (string, []inter
 		}
 	}
 
-	if wc := us.WhereClause; wc != nil {
-		qw.WriteString(" WHERE ")
+	if us.WhereClause == nil {
+		return "", nil, ErrMissingPredicate
+	}
 
-		if err := wc.WriteTo(&qw, vs); err != nil {
-			return "", nil, err
-		}
+	qw.WriteString(" WHERE ")
+
+	if err := us.WhereClause.WriteTo(&qw, vs); err != nil {
+		return "", nil, err
 	}
 
 	return qw.String(), qw.vs, nil
