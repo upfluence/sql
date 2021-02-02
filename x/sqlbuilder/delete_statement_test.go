@@ -15,7 +15,13 @@ func TestDeleteQuery(t *testing.T) {
 
 		stmt string
 		args []interface{}
+		err  error
 	}{
+		{
+			name: "delete all not allowed",
+			ds:   DeleteStatement{Table: "foo"},
+			err:  ErrMissingPredicate,
+		},
 		{
 			name: "delete",
 			ds: DeleteStatement{
@@ -30,9 +36,9 @@ func TestDeleteQuery(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			stmt, args, err := tt.ds.Clone().buildQuery(tt.vs)
 
-			assert.Nil(t, err)
 			assert.Equal(t, tt.stmt, stmt)
 			assert.Equal(t, tt.args, args)
+			assert.Equal(t, tt.err, err)
 		})
 	}
 }

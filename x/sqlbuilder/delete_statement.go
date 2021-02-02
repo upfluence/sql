@@ -20,6 +20,10 @@ func (ds DeleteStatement) buildQuery(vs map[string]interface{}) (string, []inter
 
 	fmt.Fprintf(&qw, "DELETE FROM %s WHERE ", ds.Table)
 
+	if ds.WhereClause == nil {
+		return "", nil, ErrMissingPredicate
+	}
+
 	if err := ds.WhereClause.WriteTo(&qw, vs); err != nil {
 		return "", nil, err
 	}
