@@ -18,14 +18,13 @@ func TestUpdateQuery(t *testing.T) {
 		err  error
 	}{
 		{
-			name: "update all",
+			name: "update all not allowed",
 			us: UpdateStatement{
 				Table:  "foo",
 				Fields: []Marker{Column("biz"), Column("buz")},
 			},
-			vs:   map[string]interface{}{"buz": 1, "biz": 2},
-			stmt: "UPDATE foo SET biz = $1, buz = $2",
-			args: []interface{}{2, 1},
+			vs:  map[string]interface{}{"buz": 1, "biz": 2},
+			err: ErrMissingPredicate,
 		},
 		{
 			name: "update specific",

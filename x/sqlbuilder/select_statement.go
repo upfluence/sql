@@ -38,7 +38,7 @@ func (ss SelectStatement) Clone() SelectStatement {
 		HavingClause:   clonePredicateClause(ss.HavingClause),
 		Offset:         ss.Offset,
 		Limit:          ss.Limit,
-		Consistency:	ss.Consistency,
+		Consistency:    ss.Consistency,
 	}
 }
 
