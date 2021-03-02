@@ -11,6 +11,9 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ '1.16.x', '1.15.x', '1.14.x' ]
     services:
       postgres:
         image: postgres
@@ -27,10 +30,10 @@ jobs:
           - 5432:5432
 
     steps:
-      - name: Install Go
+      - name: Install Go ${{ matrix.go }}
         uses: actions/setup-go@v2
         with:
-          go-version: 1.16.x
+          go-version: ${{ matrix.go }}
 
       - name: Checkout
         uses: actions/checkout@v2
