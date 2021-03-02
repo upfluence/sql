@@ -1,6 +1,6 @@
 module github.com/upfluence/sql
 
-go 1.14
+go 1.16
 
 require (
 	github.com/lib/pq v1.4.0
