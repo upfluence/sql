@@ -21,6 +21,8 @@ type ReadOptions struct {
 
 	SkipPagination bool
 	SkipOrdering   bool
+
+	Consistency sql.Consistency
 }
 
 type Reader interface {
@@ -80,6 +82,7 @@ func (r reader) Read(ctx context.Context, opts ReadOptions) (sqlbuilder.Cursor, 
 		GroupByClause: opts.GroupByClause,
 		HavingClause:  opts.HavingClause,
 		WhereClause:   r.pr.reducer()(r.pr.predicateClauses()...),
+		Consistency:   opts.Consistency,
 	}
 
 	if p := r.pr.pagination(); !opts.SkipPagination && p != zeroPagination {
