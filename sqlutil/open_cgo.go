@@ -9,9 +9,7 @@ import (
 )
 
 func init() {
-	driverWrapperMu.Lock()
-	driverWrapper["sqlite3"] = newSQLite3DB
-	driverWrapperMu.Unlock()
+	RegisterDriverWrapper("sqlite3", newSQLite3DB)
 }
 
 func newSQLite3DB(db sql.DB, _ sqlparser.SQLParser) sql.DB {

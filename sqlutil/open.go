@@ -19,11 +19,18 @@ var (
 
 	ErrNoDBProvided = errors.New("sql/sqlutil: No DB provided")
 
-	driverWrapperMu = &sync.Mutex{}
-	driverWrapper   = map[string]driverWrapperFunc{"postgres": postgres.NewDB}
+	driverWrappersMu = &sync.Mutex{}
+	driverWrappers   = map[string]DriverWrapperFunc{"postgres": postgres.NewDB}
 )
 
-type driverWrapperFunc func(sql.DB, sqlparser.SQLParser) sql.DB
+func RegisterDriverWrapper(d string, fn DriverWrapperFunc) {
+	driverWrappersMu.Lock()
+	defer driverWrappersMu.Unlock()
+
+	driverWrappers[d] = fn
+}
+
+type DriverWrapperFunc func(sql.DB, sqlparser.SQLParser) sql.DB
 
 type DBOption func(*dbInput)
 
@@ -84,7 +91,7 @@ func (i *dbInput) buildDB(p sqlparser.SQLParser) (sql.DB, error) {
 
 	db := simple.FromStdDB(plainDB, i.driver)
 
-	if wfn, ok := driverWrapper[i.driver]; ok {
+	if wfn, ok := driverWrappers[i.driver]; ok {
 		db = wfn(db, p)
 	}
 

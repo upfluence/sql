@@ -1,13 +1,18 @@
 package migration
 
+import "sync"
+
 var (
 	defaultDriver = &driver{name: "default"}
 
-	driverMap = map[string]Driver{
-		"postgres": &driver{
-			name:       "postgres",
-			extensions: []string{"postgres", "psql"},
-		},
+	PostgresDriver Driver = &driver{
+		name:       "postgres",
+		extensions: []string{"postgres", "psql"},
+	}
+
+	driversMu = &sync.Mutex{}
+	drivers   = map[string]Driver{
+		"postgres": PostgresDriver,
 		"sqlite3": &driver{
 			name:       "sqlite3",
 			extensions: []string{"sqlite3", "sqlite"},
@@ -15,13 +20,22 @@ var (
 	}
 )
 
+func RegisterDriver(n string, d Driver) {
+	driversMu.Lock()
+	defer driversMu.Unlock()
+
+	drivers[n] = d
+}
+
 type Driver interface {
 	Name() string
 	Extensions() []string
 }
 
 func fetchDriver(dname string) Driver {
-	d, ok := driverMap[dname]
+	driversMu.Lock()
+	d, ok := drivers[dname]
+	driversMu.Unlock()
 
 	if ok {
 		return d
