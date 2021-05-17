@@ -45,7 +45,7 @@ func TestNullUTCTime_Scan(t *testing.T) {
 			var n = NullUTCTime{}
 
 			tt.errFn(t, n.Scan(tt.value))
-			assert.Equal(t, tt.want.Unix(), n.Time.Unix())
+			assert.Equal(t, tt.want, n.Time)
 		})
 	}
 }
