@@ -19,7 +19,7 @@ func (nut *NullUTCTime) Scan(v interface{}) error {
 	}
 
 	nut.Valid = nt.Valid
-	nut.Time = time.Unix(nt.Time.UTC().Unix(), 0)
+	nut.Time = time.Unix(nt.Time.UTC().Unix(), 0).UTC()
 
 	return nil
 }
