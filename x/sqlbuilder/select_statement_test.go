@@ -295,6 +295,17 @@ func TestSelectQuery(t *testing.T) {
 			vs:  map[string]interface{}{"bar": []int64{}},
 			err: errNoMarkers,
 		},
+		{
+			name: "function",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("biz")},
+				WhereClause:   StaticEq(SQLFunction(Column("biz"), "LOWER"), "bar"),
+			},
+			stmt: "SELECT biz FROM foo WHERE LOWER(biz) = $1",
+			vs:   map[string]interface{}{"biz": "bar"},
+			args: []interface{}{"bar"},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			stmt, args, _, err := tt.ss.Clone().buildQuery(tt.vs)
