@@ -3,6 +3,7 @@ package sqlbuilder
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var errNoMarkers = errors.New("x/sqlbuilder: No marker given to the statement")
@@ -71,4 +72,15 @@ func columnName(m Marker) string {
 	}
 
 	return m.ToSQL()
+}
+
+func SQLFunction(m Marker, fn string, args ...string) Marker {
+	return SQLExpression(
+		m.Binding(),
+		fmt.Sprintf(
+			"%s(%s)",
+			fn,
+			strings.Join(append([]string{m.ToSQL()}, args...), ","),
+		),
+	)
 }
