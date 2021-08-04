@@ -239,6 +239,27 @@ func In(m Marker) PredicateClause {
 	return &basicClause{m: m, fn: writeInClause}
 }
 
+type Exists struct {
+	Table       string
+	WhereClause PredicateClause
+}
+
+func (e *Exists) Clone() PredicateClause {
+	return &Exists{Table: e.Table, WhereClause: e.WhereClause}
+}
+
+func (e *Exists) WriteTo(w QueryWriter, vs map[string]interface{}) error {
+	io.WriteString(w, "EXISTS(SELECT 1 FROM ")
+	io.WriteString(w, e.Table)
+	io.WriteString(w, " WHERE ")
+	if err := e.WhereClause.WriteTo(w, vs); err != nil {
+		return err
+	}
+	io.WriteString(w, ")")
+
+	return nil
+}
+
 type basicClause struct {
 	m  Marker
 	fn func(QueryWriter, interface{}, string) error
