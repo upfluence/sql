@@ -306,6 +306,26 @@ func TestSelectQuery(t *testing.T) {
 			vs:   map[string]interface{}{"biz": "bar"},
 			args: []interface{}{"bar"},
 		},
+		{
+			name: "exists",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("biz")},
+				WhereClause: &Exists{
+					Table: "bar",
+					WhereClause: And(
+						EqMarkers(
+							ColumnWithTable("bar_biz", "bar", "biz"),
+							ColumnWithTable("biz", "foo", "biz"),
+						),
+						Eq(ColumnWithTable("bar_baz", "bar", "baz")),
+					),
+				},
+			},
+			stmt: "SELECT biz FROM foo WHERE EXISTS(SELECT 1 FROM bar WHERE (\"bar\".\"biz\" = \"foo\".\"biz\") AND (\"bar\".\"baz\" = $1))",
+			vs:   map[string]interface{}{"bar_baz": "qux"},
+			args: []interface{}{"qux"},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			stmt, args, _, err := tt.ss.Clone().buildQuery(tt.vs)
