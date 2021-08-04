@@ -37,6 +37,9 @@ type Reader interface {
 	// WithOrdering: Overwrites the ordering setting with the attribute
 	WithOrdering(sqlbuilder.OrderByClause) Reader
 
+	// WithJoinClauses: Apply join to the SQL request
+	WithJoinClauses(...sqlbuilder.JoinClause) Reader
+
 	Read(context.Context, ReadOptions) (sqlbuilder.Cursor, error)
 }
 
@@ -75,10 +78,15 @@ func (r reader) WithOrdering(obc sqlbuilder.OrderByClause) Reader {
 	return reader{pr: &withOrderingReader{parentReader: r.pr, obc: obc}}
 }
 
+func (r reader) WithJoinClauses(jcs ...sqlbuilder.JoinClause) Reader {
+	return reader{pr: &withJoinClausesReader{parentReader: r.pr, jcs: jcs}}
+}
+
 func (r reader) Read(ctx context.Context, opts ReadOptions) (sqlbuilder.Cursor, error) {
 	stmt := sqlbuilder.SelectStatement{
 		Table:         r.pr.table(),
 		SelectClauses: opts.SelectClauses,
+		JoinClauses:   r.pr.joinClauses(),
 		GroupByClause: opts.GroupByClause,
 		HavingClause:  opts.HavingClause,
 		WhereClause:   r.pr.reducer()(r.pr.predicateClauses()...),
@@ -105,6 +113,7 @@ type parentReader interface {
 	predicateClauses() []sqlbuilder.PredicateClause
 	pagination() Pagination
 	ordering() sqlbuilder.OrderByClause
+	joinClauses() []sqlbuilder.JoinClause
 }
 
 type withPaginationReader struct {
@@ -122,13 +131,7 @@ type withPredicatesReader struct {
 }
 
 func (wpr *withPredicatesReader) predicateClauses() []sqlbuilder.PredicateClause {
-	return append(
-		append(
-			[]sqlbuilder.PredicateClause{},
-			wpr.parentReader.predicateClauses()...,
-		),
-		wpr.pcs...,
-	)
+	return append(wpr.parentReader.predicateClauses(), wpr.pcs...)
 }
 
 type withOrderingReader struct {
@@ -139,6 +142,16 @@ type withOrderingReader struct {
 
 func (wor *withOrderingReader) ordering() sqlbuilder.OrderByClause {
 	return wor.obc
+}
+
+type withJoinClausesReader struct {
+	parentReader
+
+	jcs []sqlbuilder.JoinClause
+}
+
+func (wjcr *withJoinClausesReader) joinClauses() []sqlbuilder.JoinClause {
+	return append(wjcr.parentReader.joinClauses(), wjcr.jcs...)
 }
 
 type rootReader struct {
@@ -158,5 +171,9 @@ func (rr *rootReader) ordering() sqlbuilder.OrderByClause {
 }
 
 func (rr *rootReader) predicateClauses() []sqlbuilder.PredicateClause {
+	return nil
+}
+
+func (rr *rootReader) joinClauses() []sqlbuilder.JoinClause {
 	return nil
 }
