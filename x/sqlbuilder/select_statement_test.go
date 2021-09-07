@@ -250,6 +250,24 @@ func TestSelectQuery(t *testing.T) {
 			stmt: "SELECT bar FROM foo WHERE bar IS NOT NULL",
 		},
 		{
+			name: "not is null",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   Not(IsNull(Column("bar"))),
+			},
+			stmt: "SELECT bar FROM foo WHERE NOT (bar IS NULL)",
+		},
+		{
+			name: "stable by not not",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   Not(Not(IsNull(Column("bar")))),
+			},
+			stmt: "SELECT bar FROM foo WHERE bar IS NULL",
+		},
+		{
 			name: "order by",
 			ss: SelectStatement{
 				Table:          "foo",
