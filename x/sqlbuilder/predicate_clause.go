@@ -112,6 +112,39 @@ func IsNotNull(m Marker) PredicateClause {
 	return PlainSQLPredicate(fmt.Sprintf("%s IS NOT NULL", m.ToSQL()))
 }
 
+type notPredicateClause struct {
+	pc PredicateClause
+}
+
+func Not(pc PredicateClause) PredicateClause {
+	if npc, ok := pc.(interface{ Not() PredicateClause }); ok {
+		return npc.Not()
+	}
+
+	return &notPredicateClause{pc: pc}
+}
+
+func (npc *notPredicateClause) Not() PredicateClause {
+	return npc.pc.Clone()
+}
+
+func (npc *notPredicateClause) Clone() PredicateClause {
+	return &notPredicateClause{pc: npc.pc.Clone()}
+}
+
+func (npc *notPredicateClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
+	if _, err := io.WriteString(w, "NOT ("); err != nil {
+		return err
+	}
+
+	if err := npc.pc.WriteTo(w, vs); err != nil {
+		return err
+	}
+
+	_, err := io.WriteString(w, ")")
+	return err
+}
+
 type staticValuePredicateClauseWrapper struct {
 	svpc StaticValuePredicateClause
 }
