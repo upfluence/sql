@@ -16,6 +16,17 @@ const (
 	Replica DBRole = "replica"
 )
 
+type SSLMode string
+
+const (
+	Disable    SSLMode = "disable"
+	Allow      SSLMode = "allow"
+	Prefer     SSLMode = "prefer"
+	Require    SSLMode = "require"
+	VerifyCA   SSLMode = "verify-ca"
+	VerifyFull SSLMode = "verify-full"
+)
+
 type Config struct {
 	Host string
 	Port int
@@ -25,7 +36,8 @@ type Config struct {
 	User     string
 	Password string
 
-	CACert *x509.Certificate
+	SSLMode SSLMode
+	CACert  *x509.Certificate
 
 	Role DBRole
 
@@ -84,16 +96,28 @@ func writeCert(cert *x509.Certificate) (string, error) {
 }
 
 func (c *Config) sslValues() (url.Values, error) {
-	if c.CACert == nil {
-		return url.Values{"sslmode": {"disable"}}, nil
+	mode := Disable
+
+	if c.CACert != nil {
+		mode = VerifyCA
+		c.certOnce.Do(func() { c.certFile, c.certErr = writeCert(c.CACert) })
+
+		if c.certErr != nil {
+			return nil, c.certErr
+		}
 	}
 
-	c.certOnce.Do(func() { c.certFile, c.certErr = writeCert(c.CACert) })
+	if c.SSLMode != "" {
+		mode = c.SSLMode
+	}
 
-	return url.Values{
-		"sslmode":     {"verify-ca"},
-		"sslrootcert": {c.certFile},
-	}, c.certErr
+	vs := url.Values{"sslmode": {string(mode)}}
+
+	if c.certFile != "" {
+		vs["sslrootcert"] = []string{c.certFile}
+	}
+
+	return vs, nil
 }
 
 func (c *Config) DSN() (string, error) {
