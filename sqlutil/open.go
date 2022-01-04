@@ -15,7 +15,10 @@ import (
 )
 
 var (
-	defaultOptions = &builder{parser: sqlparser.DefaultSQLParser()}
+	defaultOptions = &builder{
+		parser:  sqlparser.DefaultSQLParser(),
+		options: []DBOption{WithMaxOpenConns(128)},
+	}
 
 	ErrNoDBProvided = errors.New("sql/sqlutil: No DB provided")
 
@@ -119,6 +122,10 @@ func (b *builder) buildDB() (sql.DB, error) {
 	var masters, slaves []sql.DB
 
 	for _, i := range b.dbs {
+		for _, opt := range b.options {
+			opt(i)
+		}
+
 		db, err := i.buildDB(b.parser)
 
 		if err != nil {
@@ -146,6 +153,7 @@ func (b *builder) buildDB() (sql.DB, error) {
 type builder struct {
 	dbs         []*dbInput
 	middlewares []sql.MiddlewareFactory
+	options     []DBOption
 
 	parser sqlparser.SQLParser
 }
@@ -160,6 +168,10 @@ func WithDatabase(driver, dsn string, readOnly bool, opts ...DBOption) Option {
 	}
 
 	return func(b *builder) { b.dbs = append(b.dbs, &i) }
+}
+
+func WithGlobalDBOptions(opts ...DBOption) Option {
+	return func(b *builder) { b.options = append(b.options, opts...) }
 }
 
 func WithMaster(driver, dsn string, opts ...DBOption) Option {
