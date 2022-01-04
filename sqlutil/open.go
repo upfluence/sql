@@ -17,7 +17,7 @@ import (
 var (
 	defaultOptions = &builder{
 		parser:  sqlparser.DefaultSQLParser(),
-		options: []DBOption{WithMaxOpenConns(1 << 7)},
+		options: []DBOption{WithMaxOpenConns(128)},
 	}
 
 	ErrNoDBProvided = errors.New("sql/sqlutil: No DB provided")
