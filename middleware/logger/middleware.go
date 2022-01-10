@@ -85,8 +85,8 @@ type db struct {
 
 func (d *db) Driver() string { return d.db.Driver() }
 
-func (d *db) BeginTx(ctx context.Context) (sql.Tx, error) {
-	var t, err = d.db.BeginTx(ctx)
+func (d *db) BeginTx(ctx context.Context, opts sql.TxOptions) (sql.Tx, error) {
+	var t, err = d.db.BeginTx(ctx, opts)
 
 	if err != nil {
 		return nil, err

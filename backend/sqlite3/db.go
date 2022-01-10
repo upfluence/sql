@@ -28,8 +28,8 @@ func NewDB(d sql.DB) sql.DB {
 	return &db{queryer: &queryer{q: d}, db: d}
 }
 
-func (db *db) BeginTx(ctx context.Context) (sql.Tx, error) {
-	dtx, err := db.db.BeginTx(ctx)
+func (db *db) BeginTx(ctx context.Context, opts sql.TxOptions) (sql.Tx, error) {
+	dtx, err := db.db.BeginTx(ctx, opts)
 
 	if err != nil {
 		return nil, err

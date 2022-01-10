@@ -90,7 +90,7 @@ func TestExec(t *testing.T) {
 
 func TestTxExec(t *testing.T) {
 	testQueryer(t, func(db sql.DB) sql.Queryer {
-		tx, err := db.BeginTx(context.Background())
+		tx, err := db.BeginTx(context.Background(), sql.TxOptions{})
 
 		if err != nil {
 			t.Fatalf("db.BeginTx() = %v, want: nil", err)

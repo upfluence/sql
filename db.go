@@ -6,7 +6,8 @@ import (
 )
 
 type (
-	Result     = sql.Result
+	Result = sql.Result
+
 	NullInt64  = sql.NullInt64
 	NullString = sql.NullString
 	NullBool   = sql.NullBool
@@ -35,8 +36,12 @@ type Queryer interface {
 type DB interface {
 	Queryer
 
-	BeginTx(context.Context) (Tx, error)
+	BeginTx(context.Context, TxOptions) (Tx, error)
 	Driver() string
+}
+
+type TxOptions struct {
+	Isolation IsolationLevel
 }
 
 type Returning struct {
@@ -46,6 +51,7 @@ type Returning struct {
 func (Returning) IsSQLOption() {}
 
 type Consistency uint8
+
 func (Consistency) IsSQLOption() {}
 
 const (

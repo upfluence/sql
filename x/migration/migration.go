@@ -161,7 +161,9 @@ func (m *migrator) upOne(ctx context.Context) (bool, error) {
 }
 
 func (m *migrator) executeTx(ctx context.Context, fn func(sql.Queryer) error) error {
-	tx, err := m.BeginTx(ctx)
+	// Isolation level serializable will avoid having multiple migration to be
+	// executed at the same time.
+	tx, err := m.BeginTx(ctx, sql.TxOptions{Isolation: sql.LevelSerializable})
 
 	if err != nil {
 		return errors.Wrap(err, "can not open tx")

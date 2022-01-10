@@ -31,7 +31,14 @@ type Upserter struct {
 }
 
 func (u *Upserter) executeTx(ctx context.Context, fn func(sql.Queryer) error) error {
-	return sql.ExecuteTx(ctx, u, fn)
+	return sql.ExecuteTx(
+		ctx,
+		u,
+		// In order to avoid concurrent insert for the same "query values",
+		// isolation level "serializable" is needed
+		sql.TxOptions{Isolation: sql.LevelSerializable},
+		fn,
+	)
 }
 
 func (u *Upserter) PrepareUpsert(stmt Statement) sqlbuilder.Execer {
