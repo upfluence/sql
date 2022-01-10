@@ -28,7 +28,7 @@ func TestConcurrentTxQuery(t *testing.T) {
 	).Run(t, func(t *testing.T, db sql.DB) {
 		var (
 			ctx     = context.Background()
-			tx, err = db.BeginTx(ctx)
+			tx, err = db.BeginTx(ctx, sql.TxOptions{})
 			k       = 100
 
 			wg sync.WaitGroup

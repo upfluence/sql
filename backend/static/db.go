@@ -58,8 +58,11 @@ type Tx struct {
 func (tx *Tx) Commit() error   { return tx.CommitErr }
 func (tx *Tx) Rollback() error { return tx.RollbackErr }
 
-func (db *DB) Driver() string                          { return "sqltest" }
-func (db *DB) BeginTx(context.Context) (sql.Tx, error) { return db.Tx, db.TxErr }
+func (db *DB) Driver() string { return "sqltest" }
+
+func (db *DB) BeginTx(context.Context, sql.TxOptions) (sql.Tx, error) {
+	return db.Tx, db.TxErr
+}
 
 func (q *Queryer) Exec(_ context.Context, stmt string, args ...interface{}) (sql.Result, error) {
 	q.ExecQueries = append(q.ExecQueries, Query{stmt, args})

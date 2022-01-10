@@ -25,14 +25,14 @@ type db struct {
 
 func (d *db) Driver() string { return d.driver }
 
-func (d *db) BeginTx(ctx context.Context) (sql.Tx, error) {
+func (d *db) BeginTx(ctx context.Context, opts sql.TxOptions) (sql.Tx, error) {
 	db, cfn, err := d.b.Get(ctx)
 
 	if err != nil {
 		return nil, err
 	}
 
-	subTx, err := db.BeginTx(ctx)
+	subTx, err := db.BeginTx(ctx, opts)
 
 	if err != nil {
 		return nil, err

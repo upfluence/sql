@@ -31,7 +31,7 @@ type Upserter struct {
 }
 
 func (u *Upserter) executeTx(ctx context.Context, fn func(sql.Queryer) error) error {
-	return sql.ExecuteTx(ctx, u, fn)
+	return sql.ExecuteTx(ctx, u, sql.TxOptions{}, fn)
 }
 
 func (u *Upserter) PrepareUpsert(stmt Statement) sqlbuilder.Execer {

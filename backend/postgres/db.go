@@ -23,8 +23,8 @@ func NewDB(d sql.DB, p sqlparser.SQLParser) sql.DB {
 
 func (db *db) Driver() string { return db.db.Driver() }
 
-func (db *db) BeginTx(ctx context.Context) (sql.Tx, error) {
-	cur, err := db.db.BeginTx(ctx)
+func (db *db) BeginTx(ctx context.Context, opts sql.TxOptions) (sql.Tx, error) {
+	cur, err := db.db.BeginTx(ctx, opts)
 
 	if err != nil {
 		return nil, err

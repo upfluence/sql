@@ -149,8 +149,11 @@ func (tx *tx) Query(ctx context.Context, qry string, vs ...interface{}) (sql.Cur
 
 func (d *db) Driver() string { return d.driver }
 
-func (d *db) BeginTx(ctx context.Context) (sql.Tx, error) {
-	t, err := d.db.BeginTx(ctx, nil)
+func (d *db) BeginTx(ctx context.Context, opts sql.TxOptions) (sql.Tx, error) {
+	t, err := d.db.BeginTx(
+		ctx,
+		&stdsql.TxOptions{Isolation: stdsql.IsolationLevel(opts.Isolation)},
+	)
 
 	if err != nil {
 		return nil, err

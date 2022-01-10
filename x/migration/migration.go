@@ -161,7 +161,7 @@ func (m *migrator) upOne(ctx context.Context) (bool, error) {
 }
 
 func (m *migrator) executeTx(ctx context.Context, fn func(sql.Queryer) error) error {
-	tx, err := m.BeginTx(ctx)
+	tx, err := m.BeginTx(ctx, sql.TxOptions{})
 
 	if err != nil {
 		return errors.Wrap(err, "can not open tx")
