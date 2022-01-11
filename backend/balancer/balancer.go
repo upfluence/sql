@@ -2,9 +2,10 @@ package balancer
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"sync"
+
+	"github.com/upfluence/errors"
 
 	"github.com/upfluence/sql"
 )
@@ -13,7 +14,7 @@ var (
 	RoundRobinBalancerBuilder   = BalancerBuilderFunc(buildRoundRobinBalancer)
 	LeastPendingBalancerBuilder = BalancerBuilderFunc(buildLeastPendingBalancer)
 
-	errNoDB = errors.New("backend/balancer: No DB registered")
+	errNoDB = errors.New("No DB registered")
 )
 
 type CloseFunc func(error)

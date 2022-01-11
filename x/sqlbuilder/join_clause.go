@@ -1,13 +1,14 @@
 package sqlbuilder
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/upfluence/errors"
 )
 
-var errEmptyWhereClause = errors.New("x/sqlbuilder: where clause on join is empty")
+var errEmptyWhereClause = errors.New("where clause on join is empty")
 
 type JoinType string
 

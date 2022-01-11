@@ -1,12 +1,13 @@
 package sqlbuilder
 
 import (
-	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/upfluence/errors"
 )
 
-var errNoMarkers = errors.New("x/sqlbuilder: No marker given to the statement")
+var errNoMarkers = errors.New("No marker given to the statement")
 
 type Marker interface {
 	Binding() string

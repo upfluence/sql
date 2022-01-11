@@ -3,12 +3,13 @@ package sql
 import (
 	"context"
 	"database/sql"
-	"errors"
+
+	"github.com/upfluence/errors"
 )
 
 type IsolationLevel = sql.IsolationLevel
 
-var ErrRollback = errors.New("sql: rollback sentinel")
+var ErrRollback = errors.New("rollback sentinel")
 
 const (
 	LevelDefault IsolationLevel = iota

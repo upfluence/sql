@@ -8,14 +8,14 @@ import (
 	"io"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/upfluence/errors"
 )
 
 var errInvalidType = errors.New("unsupported type to assign to a StringSlice")
 
 type StringSlice struct {
 	Strings []string
-	Valid bool
+	Valid   bool
 }
 
 func (ss *StringSlice) Scan(v interface{}) error {
@@ -57,7 +57,7 @@ func (ss StringSlice) Value() (driver.Value, error) {
 	var (
 		buf bytes.Buffer
 
-		w  = csv.NewWriter(&buf)
+		w = csv.NewWriter(&buf)
 	)
 
 	if err := w.Write(ss.Strings); err != nil {

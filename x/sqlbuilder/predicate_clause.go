@@ -1,13 +1,14 @@
 package sqlbuilder
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"reflect"
+
+	"github.com/upfluence/errors"
 )
 
-var ErrMissingPredicate = errors.New("x/sqlbuilder: Missing predicate")
+var ErrMissingPredicate = errors.New("Missing predicate")
 
 type plainSQLPredicate string
 
@@ -170,7 +171,7 @@ func (emk ErrMissingKey) Error() string {
 	return fmt.Sprintf("%q key missing", emk.Key)
 }
 
-var errInvalidType = errors.New("sqlbuilder: invalid type")
+var errInvalidType = errors.New("invalid type")
 
 func Eq(m Marker) PredicateClause   { return signClause(m, "=") }
 func Ne(m Marker) PredicateClause   { return signClause(m, "!=") }

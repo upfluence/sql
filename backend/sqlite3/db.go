@@ -2,12 +2,12 @@ package sqlite3
 
 import (
 	"context"
-	"errors"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/mattn/go-sqlite3"
+	"github.com/upfluence/errors"
 
 	"github.com/upfluence/sql"
 )
@@ -15,7 +15,7 @@ import (
 var (
 	argRegexp = regexp.MustCompile(`\$\d+`)
 
-	ErrInvalidArgsNumber = errors.New("backend/sqlite3: invalid arg number")
+	ErrInvalidArgsNumber = errors.New("invalid arg number")
 )
 
 type db struct {
