@@ -153,26 +153,37 @@ func wrapErr(err error) error {
 		return nil
 	}
 
-	sqlErr, ok := err.(sqlite3.Error)
+	var sqlErr sqlite3.Error
 
-	if !ok || sqlErr.Code != sqlite3.ErrConstraint {
+	if !errors.As(err, &sqlErr) {
 		return err
 	}
 
-	werr := sql.ConstraintError{Cause: err}
+	switch sqlErr.Code {
+	case sqlite3.ErrConstraint:
+		return wrapConstraintError(sqlErr)
+	case sqlite3.ErrLocked:
+		return sql.RollbackError{Cause: err, Type: sql.Locked}
+	default:
+		return err
+	}
+}
+
+func wrapConstraintError(sqlErr sqlite3.Error) sql.ConstraintError {
+	err := sql.ConstraintError{Cause: sqlErr}
 
 	switch sqlErr.ExtendedCode {
 	case sqlite3.ErrConstraintPrimaryKey:
-		werr.Type = sql.PrimaryKey
+		err.Type = sql.PrimaryKey
 	case sqlite3.ErrConstraintForeignKey:
-		werr.Type = sql.ForeignKey
+		err.Type = sql.ForeignKey
 	case sqlite3.ErrConstraintNotNull:
-		werr.Type = sql.NotNull
+		err.Type = sql.NotNull
 	case sqlite3.ErrConstraintUnique:
-		werr.Type = sql.Unique
+		err.Type = sql.Unique
 	}
 
-	return werr
+	return err
 }
 
 func IsSQLite3DB(d sql.DB) bool {
