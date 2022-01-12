@@ -88,12 +88,12 @@ func ExecuteTx(ctx context.Context, db DB, txOpts TxOptions, fn QueryerFunc, exO
 		tx, err := db.BeginTx(ctx, txOpts)
 
 		if err != nil {
-			return err
+			return errors.Wrap(err, "cant begin the tx")
 		}
 
 		switch err := fn(tx); {
 		case err == nil:
-			return tx.Commit()
+			return errors.Wrap(tx.Commit(), "cant commit the tx")
 		case errors.Is(err, ErrRollback):
 			tx.Rollback()
 			return nil
