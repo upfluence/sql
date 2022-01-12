@@ -6,68 +6,67 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/upfluence/pkg/testutil"
+	"github.com/upfluence/errors/errtest"
 )
 
 func TestStringSlice_Scan(t *testing.T) {
-	for _, tt := range []struct{
-		name string
-		value interface{}
-		want []string
-		errFn testutil.ErrorAssertion
-	} {
+	for _, tt := range []struct {
+		name    string
+		value   interface{}
+		want    []string
+		wantErr errtest.ErrorAssertion
+	}{
 		{
-			name: "valid",
-			value: `foo,bar`,
-			want: []string{"foo", "bar"},
-			errFn: testutil.NoError(),
+			name:    "valid",
+			value:   `foo,bar`,
+			want:    []string{"foo", "bar"},
+			wantErr: errtest.NoError(),
 		},
 		{
-			name: "escape coma",
-			value: `"foo,fuu","bar"`,
-			want: []string{"foo,fuu", "bar"},
-			errFn: testutil.NoError(),
+			name:    "escape coma",
+			value:   `"foo,fuu","bar"`,
+			want:    []string{"foo,fuu", "bar"},
+			wantErr: errtest.NoError(),
 		},
 		{
-			name: "empty slice",
-			value: "",
-			want: []string{},
-			errFn: testutil.NoError(),
+			name:    "empty slice",
+			value:   "",
+			want:    []string{},
+			wantErr: errtest.NoError(),
 		},
 		{
-			name: "nil slice",
-			value: nil,
-			want: nil,
-			errFn: testutil.NoError(),
+			name:    "nil slice",
+			value:   nil,
+			want:    nil,
+			wantErr: errtest.NoError(),
 		},
 		{
-			name: "invalid type",
-			value: true,
-			want: nil,
-			errFn: testutil.ErrorCause(errInvalidType),
+			name:    "invalid type",
+			value:   true,
+			want:    nil,
+			wantErr: errtest.ErrorCause(errInvalidType),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var v = StringSlice{}
 
-			tt.errFn(t, v.Scan(tt.value))
+			tt.wantErr.Assert(t, v.Scan(tt.value))
 			assert.Equal(t, tt.want, v.Strings)
 		})
 	}
 }
 
-
 func TestStringSlice_Value(t *testing.T) {
-	for _, tt := range []struct{
-		name string
+	for _, tt := range []struct {
+		name  string
 		value StringSlice
-		want driver.Value
-	} {
+		want  driver.Value
+	}{
 		{
 			name: "valid",
 			value: StringSlice{
 				Strings: []string{"foo", "bar"},
-				Valid: true,
+				Valid:   true,
 			},
 			want: `foo,bar`,
 		},
@@ -75,7 +74,7 @@ func TestStringSlice_Value(t *testing.T) {
 			name: "invalid flag",
 			value: StringSlice{
 				Strings: []string{"foo", "bar"},
-				Valid: false,
+				Valid:   false,
 			},
 			want: nil,
 		},
@@ -83,7 +82,7 @@ func TestStringSlice_Value(t *testing.T) {
 			name: "escape coma",
 			value: StringSlice{
 				Strings: []string{"foo,fuu", "bar"},
-				Valid: true,
+				Valid:   true,
 			},
 			want: `"foo,fuu",bar`,
 		},
@@ -91,7 +90,7 @@ func TestStringSlice_Value(t *testing.T) {
 			name: "empty slice",
 			value: StringSlice{
 				Strings: []string{},
-				Valid: true,
+				Valid:   true,
 			},
 			want: "",
 		},
@@ -99,7 +98,7 @@ func TestStringSlice_Value(t *testing.T) {
 			name: "nil slice",
 			value: StringSlice{
 				Strings: []string{},
-				Valid: false,
+				Valid:   false,
 			},
 			want: nil,
 		},

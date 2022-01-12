@@ -2,14 +2,15 @@ package upserter
 
 import (
 	"context"
-	"errors"
+
+	"github.com/upfluence/errors"
 
 	"github.com/upfluence/sql"
 	"github.com/upfluence/sql/x/sqlbuilder"
 )
 
 var (
-	errNoQueryValues = errors.New("x/sqlbuilder: No QueryValue marker given")
+	errNoQueryValues = errors.New("No QueryValue marker given")
 
 	oneMarker = sqlbuilder.SQLExpression("one", "1")
 )
@@ -28,6 +29,8 @@ type UpsertStatement = Statement
 
 type Upserter struct {
 	sql.DB
+
+	ExecuteTxOptions []sql.ExecuteTxOption
 }
 
 func (u *Upserter) executeTx(ctx context.Context, fn func(sql.Queryer) error) error {
@@ -38,6 +41,7 @@ func (u *Upserter) executeTx(ctx context.Context, fn func(sql.Queryer) error) er
 		// isolation level "serializable" is needed
 		sql.TxOptions{Isolation: sql.LevelSerializable},
 		fn,
+		u.ExecuteTxOptions...,
 	)
 }
 

@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/upfluence/errors"
 	"github.com/upfluence/log"
 )
 
-var ErrNotExist = errors.New("x/migration: This migration does not exist")
+var ErrNotExist = errors.New("This migration does not exist")
 
 type Migration interface {
 	ID() uint

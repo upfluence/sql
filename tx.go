@@ -3,12 +3,22 @@ package sql
 import (
 	"context"
 	"database/sql"
-	"errors"
+
+	"github.com/upfluence/errors"
+)
+
+var (
+	ErrRollback = errors.New("rollback sentinel")
+
+	InfiniteRetry = -1
+
+	defaultExecuteTxOptions = executeTxOptions{
+		retryCount: InfiniteRetry,
+		retryCheck: isRetryableError,
+	}
 )
 
 type IsolationLevel = sql.IsolationLevel
-
-var ErrRollback = errors.New("sql: rollback sentinel")
 
 const (
 	LevelDefault IsolationLevel = iota
@@ -30,21 +40,74 @@ type Tx interface {
 
 type QueryerFunc func(Queryer) error
 
-func ExecuteTx(ctx context.Context, db DB, opts TxOptions, fn QueryerFunc) error {
-	tx, err := db.BeginTx(ctx, opts)
+type executeTxOptions struct {
+	retryCount int
+	retryCheck func(error) bool
+}
 
-	if err != nil {
-		return err
+type ExecuteTxOption func(*executeTxOptions)
+
+func (opts executeTxOptions) shouldRetry(i int) bool {
+	if opts.retryCount == InfiniteRetry {
+		return true
 	}
 
-	switch err := fn(tx); err {
-	case nil:
-		return tx.Commit()
-	case ErrRollback:
-		tx.Rollback()
-		return nil
-	default:
-		tx.Rollback()
-		return err
+	return i < opts.retryCount
+}
+
+func isRetryableError(err error) bool {
+	var re RollbackError
+
+	if !errors.As(err, &re) {
+		return false
+	}
+
+	return re.Type == SerializationFailure || re.Type == Locked
+}
+
+func WithCustomRetryCheck(fn func(error) bool) ExecuteTxOption {
+	return func(opts *executeTxOptions) { opts.retryCheck = fn }
+}
+
+func WithRetryCount(i int) ExecuteTxOption {
+	return func(opts *executeTxOptions) { opts.retryCount = i }
+}
+
+func ExecuteTx(ctx context.Context, db DB, txOpts TxOptions, fn QueryerFunc, exOpts ...ExecuteTxOption) error {
+	var (
+		i int
+
+		opts = defaultExecuteTxOptions
+	)
+
+	for _, fn := range exOpts {
+		fn(&opts)
+	}
+
+	for {
+		tx, err := db.BeginTx(ctx, txOpts)
+
+		if err != nil {
+			return err
+		}
+
+		switch err := fn(tx); {
+		case err == nil:
+			return tx.Commit()
+		case errors.Is(err, ErrRollback):
+			tx.Rollback()
+			return nil
+		case opts.retryCheck(err):
+			tx.Rollback()
+
+			if !opts.shouldRetry(i) {
+				return err
+			}
+
+			i++
+		default:
+			tx.Rollback()
+			return err
+		}
 	}
 }

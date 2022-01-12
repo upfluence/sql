@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -98,37 +99,6 @@ func (q *queryer) Exec(ctx context.Context, stmt string, vs ...interface{}) (sql
 	return res, wrapErr(err)
 }
 
-const constraintClass = pq.ErrorClass("23")
-
-func wrapErr(err error) error {
-	if err == nil {
-		return err
-	}
-
-	pqErr, ok := err.(*pq.Error)
-
-	if !ok || pqErr.Code.Class() != constraintClass {
-		return err
-	}
-
-	werr := sql.ConstraintError{Cause: err}
-
-	switch pqErr.Code {
-	case pq.ErrorCode("23503"):
-		werr.Type = sql.ForeignKey
-	case pq.ErrorCode("23502"):
-		werr.Type = sql.NotNull
-	case pq.ErrorCode("23505"):
-		if strings.HasSuffix(pqErr.Constraint, "_pkey") {
-			werr.Type = sql.PrimaryKey
-		} else {
-			werr.Type = sql.Unique
-		}
-	}
-
-	return werr
-}
-
 type scanner struct {
 	sc sql.Scanner
 }
@@ -148,4 +118,59 @@ func (c *cursor) Scan(vs ...interface{}) error {
 func IsPostgresDB(d sql.DB) bool {
 	_, ok := d.(*db)
 	return ok
+}
+
+const (
+	constraintClass = pq.ErrorClass("23")
+	rollbackClass   = pq.ErrorClass("40")
+)
+
+func wrapErr(err error) error {
+	if err == nil {
+		return err
+	}
+
+	var pqErr *pq.Error
+
+	if !errors.As(err, &pqErr) {
+		return err
+	}
+
+	switch pqErr.Code.Class() {
+	case constraintClass:
+		return wrapConstraintErr(pqErr)
+	case rollbackClass:
+		return wrapRollbackError(pqErr)
+	default:
+		return err
+	}
+}
+
+func wrapRollbackError(pqErr *pq.Error) error {
+	var err = sql.RollbackError{Cause: pqErr}
+
+	if pqErr.Code == pq.ErrorCode("40001") {
+		err.Type = sql.SerializationFailure
+	}
+
+	return err
+}
+
+func wrapConstraintErr(pqErr *pq.Error) error {
+	var err = sql.ConstraintError{Cause: pqErr}
+
+	switch pqErr.Code {
+	case pq.ErrorCode("23503"):
+		err.Type = sql.ForeignKey
+	case pq.ErrorCode("23502"):
+		err.Type = sql.NotNull
+	case pq.ErrorCode("23505"):
+		if strings.HasSuffix(pqErr.Constraint, "_pkey") {
+			err.Type = sql.PrimaryKey
+		} else {
+			err.Type = sql.Unique
+		}
+	}
+
+	return err
 }

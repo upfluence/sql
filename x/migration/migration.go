@@ -6,8 +6,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.com/upfluence/pkg/multierror"
+	"github.com/upfluence/errors"
 	"github.com/upfluence/sql"
 )
 
@@ -27,7 +26,7 @@ func (ms MultiMigrator) Up(ctx context.Context) error {
 		}
 	}
 
-	return multierror.Wrap(errs)
+	return errors.WrapErrors(errs)
 }
 
 func (ms MultiMigrator) Down(ctx context.Context) error {
@@ -39,7 +38,7 @@ func (ms MultiMigrator) Down(ctx context.Context) error {
 		}
 	}
 
-	return multierror.Wrap(errs)
+	return errors.WrapErrors(errs)
 }
 
 type migrator struct {
@@ -163,17 +162,12 @@ func (m *migrator) upOne(ctx context.Context) (bool, error) {
 func (m *migrator) executeTx(ctx context.Context, fn func(sql.Queryer) error) error {
 	// Isolation level serializable will avoid having multiple migration to be
 	// executed at the same time.
-	tx, err := m.BeginTx(ctx, sql.TxOptions{Isolation: sql.LevelSerializable})
-
-	if err != nil {
-		return errors.Wrap(err, "can not open tx")
-	}
-
-	if err := fn(tx); err != nil {
-		return multierror.Combine(err, errors.Wrap(tx.Rollback(), "rollback"))
-	}
-
-	return errors.Wrap(tx.Commit(), "cant commit")
+	return sql.ExecuteTx(
+		ctx,
+		m,
+		sql.TxOptions{Isolation: sql.LevelSerializable},
+		fn,
+	)
 }
 
 func (m *migrator) currentMigration(ctx context.Context, q sql.Queryer) (Migration, error) {

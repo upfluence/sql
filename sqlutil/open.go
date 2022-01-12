@@ -2,9 +2,10 @@ package sqlutil
 
 import (
 	stdsql "database/sql"
-	"errors"
 	"sync"
 	"time"
+
+	"github.com/upfluence/errors"
 
 	"github.com/upfluence/sql"
 	"github.com/upfluence/sql/backend/postgres"
@@ -20,7 +21,7 @@ var (
 		options: []DBOption{WithMaxOpenConns(128)},
 	}
 
-	ErrNoDBProvided = errors.New("sql/sqlutil: No DB provided")
+	ErrNoDBProvided = errors.New("No DB provided")
 
 	driverWrappersMu = &sync.Mutex{}
 	driverWrappers   = map[string]DriverWrapperFunc{"postgres": postgres.NewDB}

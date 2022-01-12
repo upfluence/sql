@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/upfluence/pkg/testutil"
+	"github.com/upfluence/errors/errtest"
 )
 
 func TestNullUTCTime_Scan(t *testing.T) {
@@ -16,35 +16,37 @@ func TestNullUTCTime_Scan(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, tt := range []struct {
-		name  string
-		value interface{}
-		want  time.Time
-		errFn testutil.ErrorAssertion
+		name    string
+		value   interface{}
+		want    time.Time
+		wantErr errtest.ErrorAssertion
 	}{
 		{
-			name:  "valid with utc",
-			value: time.Date(2000, 1, 1, 8, 9, 10, 11, time.UTC),
-			want:  time.Date(2000, 1, 1, 8, 9, 10, 00, time.UTC),
-			errFn: testutil.NoError(),
+			name:    "valid with utc",
+			value:   time.Date(2000, 1, 1, 8, 9, 10, 11, time.UTC),
+			want:    time.Date(2000, 1, 1, 8, 9, 10, 00, time.UTC),
+			wantErr: errtest.NoError(),
 		},
 		{
-			name:  "valid with other zone",
-			value: time.Date(2000, 1, 1, 8, 9, 10, 11, gmtLocation),
-			want:  time.Date(2000, 1, 1, 7, 9, 10, 00, time.UTC),
-			errFn: testutil.NoError(),
+			name:    "valid with other zone",
+			value:   time.Date(2000, 1, 1, 8, 9, 10, 11, gmtLocation),
+			want:    time.Date(2000, 1, 1, 7, 9, 10, 00, time.UTC),
+			wantErr: errtest.NoError(),
 		},
 		{
 			name:  "invalid",
 			value: "invalid",
-			errFn: func(t testing.TB, err error) {
-				assert.Contains(t, err.Error(), "unsupported Scan")
-			},
+			wantErr: errtest.ErrorAssertionFunc(
+				func(t testing.TB, err error) {
+					assert.Contains(t, err.Error(), "unsupported Scan")
+				},
+			),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var n = NullUTCTime{}
 
-			tt.errFn(t, n.Scan(tt.value))
+			tt.wantErr.Assert(t, n.Scan(tt.value))
 			assert.Equal(t, tt.want, n.Time)
 		})
 	}
