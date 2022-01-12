@@ -93,7 +93,13 @@ func ExecuteTx(ctx context.Context, db DB, txOpts TxOptions, fn QueryerFunc, exO
 
 		switch err := fn(tx); {
 		case err == nil:
-			return errors.Wrap(tx.Commit(), "cant commit the tx")
+			err := tx.Commit()
+
+			if !opts.retryCheck(err) || !opts.shouldRetry(i) {
+				return errors.Wrap(err, "cant commit the tx")
+			}
+
+			i++
 		case errors.Is(err, ErrRollback):
 			tx.Rollback()
 			return nil
