@@ -28,7 +28,7 @@ func (db *db) BeginTx(ctx context.Context, opts sql.TxOptions) (sql.Tx, error) {
 	cur, err := db.db.BeginTx(ctx, opts)
 
 	if err != nil {
-		return nil, err
+		return nil, wrapErr(err)
 	}
 
 	return &tx{queryer: &queryer{q: cur, p: db.p}, tx: cur}, nil
@@ -40,8 +40,8 @@ type tx struct {
 	tx sql.Tx
 }
 
-func (tx *tx) Commit() error   { return tx.tx.Commit() }
-func (tx *tx) Rollback() error { return tx.tx.Rollback() }
+func (tx *tx) Commit() error   { return wrapErr(tx.tx.Commit()) }
+func (tx *tx) Rollback() error { return wrapErr(tx.tx.Rollback()) }
 
 type queryer struct {
 	q sql.Queryer
