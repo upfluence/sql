@@ -29,6 +29,8 @@ type UpsertStatement = Statement
 
 type Upserter struct {
 	sql.DB
+
+	ExecuteTxOptions []sql.ExecuteTxOption
 }
 
 func (u *Upserter) executeTx(ctx context.Context, fn func(sql.Queryer) error) error {
@@ -39,6 +41,7 @@ func (u *Upserter) executeTx(ctx context.Context, fn func(sql.Queryer) error) er
 		// isolation level "serializable" is needed
 		sql.TxOptions{Isolation: sql.LevelSerializable},
 		fn,
+		u.ExecuteTxOptions...,
 	)
 }
 
