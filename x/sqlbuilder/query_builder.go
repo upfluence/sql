@@ -91,7 +91,7 @@ func (sq *SelectQueryer) QueryRow(ctx context.Context, qvs map[string]interface{
 	stmt, vs, ks, err := sq.Statement.buildQuery(qvs)
 
 	if err != nil {
-		return errScanner{err}
+		return ErrScanner{Err: err}
 	}
 
 	return &scanner{sc: sq.QueryBuilder.QueryRow(ctx, stmt, vs...), ks: ks}

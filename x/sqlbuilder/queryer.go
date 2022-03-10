@@ -36,9 +36,9 @@ func (sc *scanner) Scan(vs map[string]interface{}) error {
 	return sc.sc.Scan(svs...)
 }
 
-type errScanner struct{ error }
+type ErrScanner struct{ Err error }
 
-func (es errScanner) Scan(map[string]interface{}) error { return es.error }
+func (es ErrScanner) Scan(map[string]interface{}) error { return es.Err }
 
 type Cursor interface {
 	Scanner

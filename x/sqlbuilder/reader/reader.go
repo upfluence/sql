@@ -41,6 +41,7 @@ type Reader interface {
 	WithJoinClauses(...sqlbuilder.JoinClause) Reader
 
 	Read(context.Context, ReadOptions) (sqlbuilder.Cursor, error)
+	ReadOne(context.Context, ReadOptions) sqlbuilder.Scanner
 }
 
 func RootReader(q sql.Queryer, table string) Reader {
@@ -82,7 +83,7 @@ func (r reader) WithJoinClauses(jcs ...sqlbuilder.JoinClause) Reader {
 	return reader{pr: &withJoinClausesReader{parentReader: r.pr, jcs: jcs}}
 }
 
-func (r reader) Read(ctx context.Context, opts ReadOptions) (sqlbuilder.Cursor, error) {
+func (r reader) readQueryer(opts ReadOptions) sqlbuilder.Queryer {
 	stmt := sqlbuilder.SelectStatement{
 		Table:         r.pr.table(),
 		SelectClauses: opts.SelectClauses,
@@ -102,7 +103,15 @@ func (r reader) Read(ctx context.Context, opts ReadOptions) (sqlbuilder.Cursor, 
 		stmt.OrderByClauses = []sqlbuilder.OrderByClause{o}
 	}
 
-	return r.pr.queryBuilder().PrepareSelect(stmt).Query(ctx, nil)
+	return r.pr.queryBuilder().PrepareSelect(stmt)
+}
+
+func (r reader) ReadOne(ctx context.Context, opts ReadOptions) sqlbuilder.Scanner {
+	return r.readQueryer(opts).QueryRow(ctx, nil)
+}
+
+func (r reader) Read(ctx context.Context, opts ReadOptions) (sqlbuilder.Cursor, error) {
+	return r.readQueryer(opts).Query(ctx, nil)
 }
 
 type parentReader interface {
