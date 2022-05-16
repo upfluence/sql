@@ -30,6 +30,8 @@ type execer struct {
 	ss sqlbuilder.SelectStatement
 	us sqlbuilder.UpdateStatement
 	is sqlbuilder.InsertStatement
+
+	mode Mode
 }
 
 func newExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
@@ -60,6 +62,7 @@ func newExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 				),
 				Returning: stmt.Returning,
 			},
+			mode: stmt.mode(),
 		}
 	)
 
@@ -163,7 +166,7 @@ func (e *execer) Exec(ctx context.Context, vs map[string]interface{}) (sql.Resul
 				}
 			}
 
-			if pristine {
+			if pristine || e.mode&Update == 0 {
 				res = driver.RowsAffected(0)
 
 				if e.returningMarker != nil {
@@ -179,6 +182,11 @@ func (e *execer) Exec(ctx context.Context, vs map[string]interface{}) (sql.Resul
 				res = lastIDResult{Result: res, id: lastID}
 			}
 		case sql.ErrNoRows:
+			if e.mode&Insert == 0 {
+				res = driver.RowsAffected(0)
+				return sql.ErrRollback
+			}
+
 			res, err = qb.PrepareInsert(e.is).Exec(ctx, vs)
 		default:
 		}
