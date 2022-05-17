@@ -259,6 +259,113 @@ func TestUpserterInsertValue(t *testing.T) {
 	})
 }
 
+func TestUpserterUpdateOnly(t *testing.T) {
+	sqltest.NewTestCase(
+		sqltest.WithMigratorFunc(
+			buildMigrator(
+				map[string]string{
+					"1_initial.up.sql":   "CREATE TABLE foo (x TEXT, y TEXT, z TEXT)",
+					"1_initial.down.sql": "DROP TABLE foo",
+				},
+			),
+		),
+	).Run(t, func(t *testing.T, db sql.DB) {
+		ctx := context.Background()
+		u := Upserter{DB: db}
+		e := u.PrepareUpsert(
+			UpsertStatement{
+				Table:        "foo",
+				QueryValues:  []sqlbuilder.Marker{sqlbuilder.Column("x")},
+				SetValues:    []sqlbuilder.Marker{sqlbuilder.Column("z")},
+				InsertValues: []sqlbuilder.Marker{sqlbuilder.Column("y")},
+				Mode:         Update,
+			},
+		)
+
+		res, err := e.Exec(
+			ctx,
+			map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+		)
+
+		if err != nil {
+			t.Fatalf("Exec() = %v [ want nil ]", err)
+		}
+
+		assertResultAffected(t, res, 0)
+
+		if err := db.QueryRow(ctx, "SELECT y, z FROM foo WHERE x = $1", "foo").Scan(
+			nil,
+			nil,
+		); err != sql.ErrNoRows {
+			t.Fatalf("QueryRow() = _, %v [ want sql.ErrNoRows ]", err)
+		}
+	})
+}
+
+func TestUpserterInsertOnly(t *testing.T) {
+	sqltest.NewTestCase(
+		sqltest.WithMigratorFunc(
+			buildMigrator(
+				map[string]string{
+					"1_initial.up.sql":   "CREATE TABLE foo (x TEXT, y TEXT, z TEXT)",
+					"1_initial.down.sql": "DROP TABLE foo",
+				},
+			),
+		),
+	).Run(t, func(t *testing.T, db sql.DB) {
+		ctx := context.Background()
+		u := Upserter{DB: db}
+		e := u.PrepareUpsert(
+			UpsertStatement{
+				Table:        "foo",
+				QueryValues:  []sqlbuilder.Marker{sqlbuilder.Column("x")},
+				SetValues:    []sqlbuilder.Marker{sqlbuilder.Column("z")},
+				InsertValues: []sqlbuilder.Marker{sqlbuilder.Column("y")},
+				Mode:         Insert,
+			},
+		)
+
+		res, err := e.Exec(
+			ctx,
+			map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+		)
+
+		if err != nil {
+			t.Fatalf("Exec() = %v [ want nil ]", err)
+		}
+
+		assertResultAffected(t, res, 1)
+
+		res, err = e.Exec(
+			ctx,
+			map[string]interface{}{"x": "foo", "y": "far", "z": "fuz"},
+		)
+
+		if err != nil {
+			t.Fatalf("Exec() = %v [ want nil ]", err)
+		}
+
+		assertResultAffected(t, res, 0)
+
+		var y, z string
+
+		if err := db.QueryRow(ctx, "SELECT y, z FROM foo WHERE x = $1", "foo").Scan(
+			&y,
+			&z,
+		); err != nil {
+			t.Fatalf("QueryRow() = _, %v [ want nil ]", err)
+		}
+
+		if y != "bar" {
+			t.Errorf("y = %q  [ want \"bar\" ]", y)
+		}
+
+		if z != "buz" {
+			t.Errorf("z = %q  [ want \"buz\" ]", z)
+		}
+	})
+}
+
 func TestUpserterOnlyQueryValues(t *testing.T) {
 	sqltest.NewTestCase(
 		sqltest.WithMigratorFunc(

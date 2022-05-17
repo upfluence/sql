@@ -15,6 +15,15 @@ var (
 	oneMarker = sqlbuilder.SQLExpression("one", "1")
 )
 
+const (
+	Insert Mode = 1 << iota
+	Update
+
+	Upsert = Insert | Update
+)
+
+type Mode uint8
+
 type Statement struct {
 	Table string
 
@@ -23,6 +32,16 @@ type Statement struct {
 	SetValues    []sqlbuilder.Marker
 
 	Returning *sql.Returning
+
+	Mode Mode
+}
+
+func (s Statement) mode() Mode {
+	if s.Mode == 0 {
+		return Upsert
+	}
+
+	return s.Mode
 }
 
 type UpsertStatement = Statement
