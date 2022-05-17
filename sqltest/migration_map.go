@@ -35,6 +35,6 @@ func (mm MigrationMap) Source(t testing.TB) migration.Source {
 	)
 }
 
-func (mm MigrationMap) Migrator(t testing.TB, db sql.DB) migration.Migrator {
-	return migration.NewMigrator(db, mm.Source(t))
+func (mm MigrationMap) Migrator(t testing.TB, db sql.DB, opts ...migration.Option) migration.Migrator {
+	return migration.NewMigrator(db, mm.Source(t), opts...)
 }
