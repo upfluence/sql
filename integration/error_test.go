@@ -39,6 +39,14 @@ func TestConstraintPrimaryKeyError(t *testing.T) {
 			t.Logf("%+v", pqerr.Constraint)
 		}
 		assert.Equal(t, sql.PrimaryKey, cerr.Type)
+		assert.Equal(
+			t,
+			map[string]string{
+				"sqlite3":  "fiz",
+				"postgres": "foo_pkey",
+			}[db.Driver()],
+			cerr.Constraint,
+		)
 
 		_, err = db.Exec(ctx, "INSERT INTO foo(fiz) VALUES ($1)", "bar")
 		assert.Nil(t, err)
@@ -65,6 +73,7 @@ func TestConstraintNotNullError(t *testing.T) {
 
 		assert.True(t, ok)
 		assert.Equal(t, sql.NotNull, cerr.Type)
+		assert.Equal(t, "fiz", cerr.Constraint)
 
 		_, err = db.Exec(ctx, "INSERT INTO foo(fiz) VALUES ($1)", "bar")
 		assert.Nil(t, err)
@@ -94,6 +103,14 @@ func TestConstraintUniqueError(t *testing.T) {
 
 		assert.True(t, ok)
 		assert.Equal(t, sql.Unique, cerr.Type)
+		assert.Equal(
+			t,
+			map[string]string{
+				"sqlite3":  "fiz",
+				"postgres": "foo_fiz_key",
+			}[db.Driver()],
+			cerr.Constraint,
+		)
 
 		_, err = db.Exec(ctx, "INSERT INTO foo(fiz) VALUES ($1)", "bar")
 		assert.Nil(t, err)

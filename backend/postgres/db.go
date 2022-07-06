@@ -157,7 +157,7 @@ func wrapRollbackError(pqErr *pq.Error) error {
 }
 
 func wrapConstraintErr(pqErr *pq.Error) error {
-	var err = sql.ConstraintError{Cause: pqErr}
+	var err = sql.ConstraintError{Cause: pqErr, Constraint: pqErr.Column}
 
 	switch pqErr.Code {
 	case pq.ErrorCode("23503"):
@@ -170,6 +170,8 @@ func wrapConstraintErr(pqErr *pq.Error) error {
 		} else {
 			err.Type = sql.Unique
 		}
+
+		err.Constraint = pqErr.Constraint
 	}
 
 	return err

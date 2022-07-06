@@ -10,7 +10,8 @@ const (
 )
 
 type ConstraintError struct {
-	Type ConstraintType
+	Type       ConstraintType
+	Constraint string
 
 	Cause error
 }

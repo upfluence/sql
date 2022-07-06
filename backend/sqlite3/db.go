@@ -169,8 +169,27 @@ func wrapErr(err error) error {
 	}
 }
 
+func parseConstraintName(msg string) string {
+	vs := strings.Split(msg, "constraint failed: ")
+
+	if len(vs) != 2 {
+		return ""
+	}
+
+	vs = strings.Split(vs[1], ".")
+
+	if len(vs) != 2 {
+		return ""
+	}
+
+	return vs[1]
+}
+
 func wrapConstraintError(sqlErr sqlite3.Error) sql.ConstraintError {
-	err := sql.ConstraintError{Cause: sqlErr}
+	err := sql.ConstraintError{
+		Cause:      sqlErr,
+		Constraint: parseConstraintName(sqlErr.Error()),
+	}
 
 	switch sqlErr.ExtendedCode {
 	case sqlite3.ErrConstraintPrimaryKey:
