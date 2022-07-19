@@ -1,6 +1,7 @@
 package sqltypes
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"testing"
@@ -53,6 +54,56 @@ func TestScan(t *testing.T) {
 			err := jv.Scan(tt.value)
 			tt.wantErr.Assert(t, err)
 			assert.Equal(t, tt.want, jv.Data)
+		})
+	}
+}
+
+func TestShadowScan(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+
+		scanner sql.Scanner
+		value   any
+		want    any
+	}{
+		{
+			name: "override object",
+			scanner: &JSONValue[testPayload]{
+				Data: testPayload{Key: "foo"},
+			},
+			value: `{"key":"bar"}`,
+			want: &JSONValue[testPayload]{
+				Data: testPayload{Key: "bar"},
+			},
+		},
+		{
+			name: "override object with nil",
+			scanner: &JSONValue[testPayload]{
+				Data: testPayload{Key: "foo"},
+			},
+			want: &JSONValue[testPayload]{
+				Data: testPayload{},
+			},
+		},
+		{
+			name: "override map with nil",
+			scanner: &JSONValue[map[string]interface{}]{
+				Data: map[string]interface{}{"foo": 1},
+			},
+			want: &JSONValue[map[string]interface{}]{},
+		},
+		{
+			name: "override pointer with nil",
+			scanner: &JSONValue[*testPayload]{
+				Data: &testPayload{Key: "foo"},
+			},
+			want: &JSONValue[*testPayload]{},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.scanner.Scan(tt.value)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, tt.scanner)
 		})
 	}
 }
