@@ -7,26 +7,36 @@ import (
 	"github.com/upfluence/errors"
 )
 
-type JSONValue[T any] struct {
-	Data  T
+type JSONValue struct {
+	Data  interface{}
 	Valid bool
 }
 
-func (jv *JSONValue[T]) Scan(v interface{}) error {
+func (jv *JSONValue) Scan(v interface{}) error {
+	var err error
+
+	jv.Valid = false
+
 	switch vv := v.(type) {
-	case []byte:
-		return json.Unmarshal(vv, &jv.Data)
-	case string:
-		return json.Unmarshal([]byte(vv), &jv.Data)
 	case nil:
-		jv.Data = *new(T)
 		return nil
+	case []byte:
+		err = json.Unmarshal(vv, &jv.Data)
+	case string:
+		err = json.Unmarshal([]byte(vv), &jv.Data)
 	default:
-		return errors.Wrap(errInvalidType, "expecting a byte slice or string")
+		err = errors.Wrap(errInvalidType, "expecting a byte slice or string")
 	}
+
+	if err != nil {
+		return err
+	}
+
+	jv.Valid = true
+	return nil
 }
 
-func (jv JSONValue[T]) Value() (driver.Value, error) {
+func (jv JSONValue) Value() (driver.Value, error) {
 	if !jv.Valid {
 		return nil, nil
 	}

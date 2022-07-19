@@ -18,18 +18,20 @@ func TestScan(t *testing.T) {
 	for _, tt := range []struct {
 		name string
 
-		value   any
-		want    testPayload
+		value   interface{}
+		want    JSONValue
 		wantErr errtest.ErrorAssertion
 	}{
 		{
 			name:    "wrong value type",
 			value:   1,
+			want:    JSONValue{Data: &testPayload{}},
 			wantErr: errtest.ErrorCause(errInvalidType),
 		},
 		{
 			name:  "invalid json",
 			value: "test",
+			want:  JSONValue{Data: &testPayload{}},
 			wantErr: errtest.ErrorAssertionFunc(
 				func(tb testing.TB, err error) {
 					assert.IsType(t, &json.SyntaxError{}, err)
@@ -38,22 +40,22 @@ func TestScan(t *testing.T) {
 		},
 		{
 			name:    "nil",
-			want:    testPayload{},
+			want:    JSONValue{Data: &testPayload{}},
 			wantErr: errtest.NoError(),
 		},
 		{
 			name:    "success",
 			value:   `{"key":"foo"}`,
-			want:    testPayload{Key: "foo"},
+			want:    JSONValue{Data: &testPayload{Key: "foo"}, Valid: true},
 			wantErr: errtest.NoError(),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			var jv JSONValue[testPayload]
+			var jv = JSONValue{Data: &testPayload{}}
 
 			err := jv.Scan(tt.value)
 			tt.wantErr.Assert(t, err)
-			assert.Equal(t, tt.want, jv.Data)
+			assert.Equal(t, tt.want, jv)
 		})
 	}
 }
@@ -63,41 +65,39 @@ func TestShadowScan(t *testing.T) {
 		name string
 
 		scanner sql.Scanner
-		value   any
-		want    any
+		value   interface{}
+		want    interface{}
 	}{
 		{
 			name: "override object",
-			scanner: &JSONValue[testPayload]{
-				Data: testPayload{Key: "foo"},
-			},
-			value: `{"key":"bar"}`,
-			want: &JSONValue[testPayload]{
-				Data: testPayload{Key: "bar"},
-			},
-		},
-		{
-			name: "override object with nil",
-			scanner: &JSONValue[testPayload]{
-				Data: testPayload{Key: "foo"},
-			},
-			want: &JSONValue[testPayload]{
-				Data: testPayload{},
-			},
-		},
-		{
-			name: "override map with nil",
-			scanner: &JSONValue[map[string]interface{}]{
-				Data: map[string]interface{}{"foo": 1},
-			},
-			want: &JSONValue[map[string]interface{}]{},
-		},
-		{
-			name: "override pointer with nil",
-			scanner: &JSONValue[*testPayload]{
+			scanner: &JSONValue{
 				Data: &testPayload{Key: "foo"},
 			},
-			want: &JSONValue[*testPayload]{},
+			value: `{"key":"bar"}`,
+			want: &JSONValue{
+				Data:  &testPayload{Key: "bar"},
+				Valid: true,
+			},
+		},
+		{
+			name: "override object with nil becomes invalid",
+			scanner: &JSONValue{
+				Data:  &testPayload{Key: "foo"},
+				Valid: true,
+			},
+			want: &JSONValue{
+				Data: &testPayload{Key: "foo"},
+			},
+		},
+		{
+			name: "override map with nil becomes invalid",
+			scanner: &JSONValue{
+				Data: map[string]interface{}{"foo": 1},
+			},
+			want: &JSONValue{
+				Data:  map[string]interface{}{"foo": 1},
+				Valid: false,
+			},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -113,18 +113,18 @@ func TestValue(t *testing.T) {
 		name string
 
 		value   driver.Valuer
-		want    any
+		want    interface{}
 		wantErr error
 	}{
 		{
 			name: "invalid data",
-			value: JSONValue[testPayload]{
+			value: JSONValue{
 				Data: testPayload{},
 			},
 		},
 		{
 			name: "string",
-			value: JSONValue[string]{
+			value: JSONValue{
 				Data:  "test",
 				Valid: true,
 			},
@@ -132,7 +132,7 @@ func TestValue(t *testing.T) {
 		},
 		{
 			name: "number",
-			value: JSONValue[int64]{
+			value: JSONValue{
 				Data:  1,
 				Valid: true,
 			},
@@ -140,7 +140,7 @@ func TestValue(t *testing.T) {
 		},
 		{
 			name: "object",
-			value: JSONValue[testPayload]{
+			value: JSONValue{
 				Data: testPayload{
 					Key: "foo",
 				},
