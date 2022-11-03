@@ -15,6 +15,10 @@ func TestDSN(t *testing.T) {
 			c:   Config{DBName: "foobar", SSLMode: VerifyFull},
 			dsn: "postgres://localhost:5432/foobar?sslmode=verify-full",
 		},
+		{
+			c:   Config{DBName: "foobar", CACertFile: "foobar"},
+			dsn: "postgres://localhost:5432/foobar?sslmode=verify-ca&sslrootcert=foobar",
+		},
 	} {
 		dsn, err := tt.c.DSN()
 

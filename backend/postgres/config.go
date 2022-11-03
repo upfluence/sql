@@ -37,13 +37,14 @@ type Config struct {
 	Password string
 
 	SSLMode SSLMode
-	CACert  *x509.Certificate
+
+	CACertFile string
+	CACert     *x509.Certificate
 
 	Role DBRole
 
 	certOnce sync.Once
 	certErr  error
-	certFile string
 }
 
 func (c *Config) Driver() string { return "postgres" }
@@ -98,9 +99,8 @@ func writeCert(cert *x509.Certificate) (string, error) {
 func (c *Config) sslValues() (url.Values, error) {
 	mode := Disable
 
-	if c.CACert != nil {
-		mode = VerifyCA
-		c.certOnce.Do(func() { c.certFile, c.certErr = writeCert(c.CACert) })
+	if c.CACertFile == "" && c.CACert != nil {
+		c.certOnce.Do(func() { c.CACertFile, c.certErr = writeCert(c.CACert) })
 
 		if c.certErr != nil {
 			return nil, c.certErr
@@ -109,12 +109,14 @@ func (c *Config) sslValues() (url.Values, error) {
 
 	if c.SSLMode != "" {
 		mode = c.SSLMode
+	} else if c.CACertFile != "" {
+		mode = VerifyCA
 	}
 
 	vs := url.Values{"sslmode": {string(mode)}}
 
-	if c.certFile != "" {
-		vs["sslrootcert"] = []string{c.certFile}
+	if c.CACertFile != "" {
+		vs["sslrootcert"] = []string{c.CACertFile}
 	}
 
 	return vs, nil
