@@ -42,6 +42,15 @@ func (ss SelectStatement) Clone() SelectStatement {
 	}
 }
 
+func writeSelectClause(c Marker, qw *queryWriter, vs map[string]interface{}) error {
+	if qs, ok := c.(QuerySegment); ok {
+		return qs.WriteTo(qw, vs)
+	}
+
+	qw.WriteString(c.ToSQL())
+	return nil
+}
+
 func (ss SelectStatement) buildQuery(vs map[string]interface{}) (string, []interface{}, []string, error) {
 	var (
 		qw       queryWriter
@@ -55,7 +64,9 @@ func (ss SelectStatement) buildQuery(vs map[string]interface{}) (string, []inter
 	qw.WriteString("SELECT ")
 
 	for i, c := range ss.SelectClauses {
-		qw.WriteString(c.ToSQL())
+		if err := writeSelectClause(c, &qw, vs); err != nil {
+			return "", nil, nil, err
+		}
 
 		if i < len(ss.SelectClauses)-1 {
 			qw.WriteString(", ")

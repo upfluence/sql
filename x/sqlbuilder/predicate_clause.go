@@ -160,8 +160,12 @@ func (svpcw *staticValuePredicateClauseWrapper) WriteTo(w QueryWriter, _ map[str
 	return svpcw.svpc.WriteTo(w)
 }
 
-type PredicateClause interface {
+type QuerySegment interface {
 	WriteTo(QueryWriter, map[string]interface{}) error
+}
+
+type PredicateClause interface {
+	QuerySegment
 	Clone() PredicateClause
 }
 
