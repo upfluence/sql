@@ -40,7 +40,9 @@ type Config struct {
 	SSLSNI  bool
 
 	CACertFile string
-	CACert     *x509.Certificate
+	// Deprecated: Prefer passing a slice of CACerts
+	CACert  *x509.Certificate
+	CACerts []*x509.Certificate
 
 	Role DBRole
 
@@ -79,29 +81,41 @@ func (c *Config) userInfo() *url.Userinfo {
 	return url.UserPassword(c.User, c.Password)
 }
 
-func writeCert(cert *x509.Certificate) (string, error) {
+func writeBundle(certs []*x509.Certificate) (string, error) {
 	f, err := ioutil.TempFile("", "")
 
 	if err != nil {
 		return "", err
 	}
 
-	if err := pem.Encode(
-		f,
-		&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw},
-	); err != nil {
-		f.Close()
-		return "", err
+	for _, cert := range certs {
+		if err := pem.Encode(
+			f,
+			&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw},
+		); err != nil {
+			f.Close()
+			return "", err
+		}
 	}
 
 	return f.Name(), f.Close()
+}
+
+func (c *Config) caCerts() []*x509.Certificate {
+	var certs = c.CACerts
+
+	if c.CACert != nil {
+		certs = append(certs, c.CACert)
+	}
+
+	return certs
 }
 
 func (c *Config) sslValues() (url.Values, error) {
 	mode := Disable
 
 	if c.CACertFile == "" && c.CACert != nil {
-		c.certOnce.Do(func() { c.CACertFile, c.certErr = writeCert(c.CACert) })
+		c.certOnce.Do(func() { c.CACertFile, c.certErr = writeBundle(c.caCerts()) })
 
 		if c.certErr != nil {
 			return nil, c.certErr
