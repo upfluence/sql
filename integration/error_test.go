@@ -3,14 +3,45 @@ package integration
 import (
 	"context"
 	"testing"
+	"time"
 
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/upfluence/sql"
 	"github.com/upfluence/sql/sqltest"
 	"github.com/upfluence/sql/x/migration"
 )
+
+func TestCanceling(t *testing.T) {
+	sqltest.NewTestCase().Run(t, func(t *testing.T, db sql.DB) {
+		ctx, done := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		defer done()
+
+		var stmt string
+
+		switch d := db.Driver(); d {
+		case "postgres":
+			stmt = "pg_sleep(1)"
+		default:
+			t.Skipf("driver not handled: %q", d)
+		}
+
+		err := db.QueryRow(ctx, "SELECT "+stmt).Scan()
+
+		assert.ErrorIs(t, err, context.Canceled)
+	})
+}
+
+func TestCanceled(t *testing.T) {
+	sqltest.NewTestCase().Run(t, func(t *testing.T, db sql.DB) {
+		ctx, done := context.WithCancel(context.Background())
+		done()
+
+		err := db.QueryRow(ctx, "SELECT 1").Scan()
+
+		assert.ErrorIs(t, err, context.Canceled)
+	})
+}
 
 func TestConstraintPrimaryKeyError(t *testing.T) {
 	sqltest.NewTestCase(
@@ -35,9 +66,6 @@ func TestConstraintPrimaryKeyError(t *testing.T) {
 
 		assert.True(t, ok)
 
-		if pqerr, ok := cerr.Cause.(*pq.Error); ok {
-			t.Logf("%+v", pqerr.Constraint)
-		}
 		assert.Equal(t, sql.PrimaryKey, cerr.Type)
 		assert.Equal(
 			t,
