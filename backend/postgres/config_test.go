@@ -8,16 +8,16 @@ import (
 
 func TestDSN(t *testing.T) {
 	for _, tt := range []struct {
-		c   Config
+		c   *Config
 		dsn string
 	}{
 		{
-			c:   Config{DBName: "foobar", SSLMode: VerifyFull},
-			dsn: "postgres://localhost:5432/foobar?sslmode=verify-full",
+			c:   &Config{DBName: "foobar", SSLMode: VerifyFull, SSLSNI: true},
+			dsn: "postgres://localhost:5432/foobar?sslmode=verify-full&sslsni=1",
 		},
 		{
-			c:   Config{DBName: "foobar", CACertFile: "foobar"},
-			dsn: "postgres://localhost:5432/foobar?sslmode=verify-ca&sslrootcert=foobar",
+			c:   &Config{DBName: "foobar", CACertFile: "foobar"},
+			dsn: "postgres://localhost:5432/foobar?sslmode=verify-ca&sslrootcert=foobar&sslsni=0",
 		},
 	} {
 		dsn, err := tt.c.DSN()

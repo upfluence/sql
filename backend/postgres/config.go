@@ -37,6 +37,7 @@ type Config struct {
 	Password string
 
 	SSLMode SSLMode
+	SSLSNI  bool
 
 	CACertFile string
 	CACert     *x509.Certificate
@@ -113,7 +114,14 @@ func (c *Config) sslValues() (url.Values, error) {
 		mode = VerifyCA
 	}
 
-	vs := url.Values{"sslmode": {string(mode)}}
+	vs := url.Values{
+		"sslmode": {string(mode)},
+		"sslsni":  {"0"},
+	}
+
+	if c.SSLSNI {
+		vs["sslsni"][0] = "1"
+	}
 
 	if c.CACertFile != "" {
 		vs["sslrootcert"] = []string{c.CACertFile}
