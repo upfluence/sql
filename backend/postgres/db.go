@@ -138,7 +138,7 @@ func (qce *queryCanceledError) Is(target error) bool {
 	return target == context.Canceled
 }
 
-func (qce *queryCanceledError) Cause() error { return qce.cause }
+func (qce *queryCanceledError) Unwrap() error { return qce.cause }
 
 func wrapErr(err error) error {
 	if err == nil {
