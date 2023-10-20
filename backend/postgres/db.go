@@ -96,6 +96,7 @@ func (q *queryer) Exec(ctx context.Context, stmt string, vs ...interface{}) (sql
 	}
 
 	res, err := q.q.Exec(ctx, stmt, vs...)
+
 	return res, wrapErr(err)
 }
 
@@ -125,6 +126,20 @@ const (
 	rollbackClass   = pq.ErrorClass("40")
 )
 
+type queryCanceledError struct {
+	cause *pq.Error
+}
+
+func (qce *queryCanceledError) Error() string {
+	return qce.cause.Error()
+}
+
+func (qce *queryCanceledError) Is(target error) bool {
+	return target == context.Canceled
+}
+
+func (qce *queryCanceledError) Unwrap() error { return qce.cause }
+
 func wrapErr(err error) error {
 	if err == nil {
 		return err
@@ -134,6 +149,10 @@ func wrapErr(err error) error {
 
 	if !errors.As(err, &pqErr) {
 		return err
+	}
+
+	if pqErr.Code == "57014" {
+		return &queryCanceledError{cause: pqErr}
 	}
 
 	switch pqErr.Code.Class() {
@@ -149,7 +168,7 @@ func wrapErr(err error) error {
 func wrapRollbackError(pqErr *pq.Error) error {
 	var err = sql.RollbackError{Cause: pqErr}
 
-	if pqErr.Code == pq.ErrorCode("40001") {
+	if pqErr.Code == "40001" {
 		err.Type = sql.SerializationFailure
 	}
 
@@ -160,11 +179,11 @@ func wrapConstraintErr(pqErr *pq.Error) error {
 	var err = sql.ConstraintError{Cause: pqErr, Constraint: pqErr.Column}
 
 	switch pqErr.Code {
-	case pq.ErrorCode("23503"):
+	case "23503":
 		err.Type = sql.ForeignKey
-	case pq.ErrorCode("23502"):
+	case "23502":
 		err.Type = sql.NotNull
-	case pq.ErrorCode("23505"):
+	case "23505":
 		if strings.HasSuffix(pqErr.Constraint, "_pkey") {
 			err.Type = sql.PrimaryKey
 		} else {
