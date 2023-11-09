@@ -130,6 +130,11 @@ func (c *Config) sslValues() (url.Values, error) {
 
 	vs := url.Values{
 		"sslmode": {string(mode)},
+		"sslsni":  {"0"},
+	}
+
+	if c.SSLSNI {
+		vs["sslsni"][0] = "1"
 	}
 
 	if c.CACertFile != "" {
