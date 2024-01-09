@@ -36,6 +36,8 @@ type Config struct {
 	User     string
 	Password string
 
+	ApplicationName string
+
 	SSLMode SSLMode
 	SSLSNI  bool
 
@@ -149,6 +151,10 @@ func (c *Config) DSN() (string, error) {
 
 	if err != nil {
 		return "", err
+	}
+
+	if c.ApplicationName != "" {
+		q.Add("application_name", c.ApplicationName)
 	}
 
 	u := url.URL{
