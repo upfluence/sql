@@ -59,7 +59,7 @@ func buildSQLite(t testing.TB) (sqlutil.Option, func()) {
 
 	return sqlutil.WithMaster(
 		"sqlite3",
-		"file:"+tmpfile.Name()+"?cache=shared&mode=memory&_txlock=deferred",
+		"file:"+tmpfile.Name()+"?cache=shared&mode=memory&_txlock=deferred&_foreign_keys=true",
 	), func() { os.Remove(tmpfile.Name()) }
 }
 
