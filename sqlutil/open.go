@@ -27,6 +27,49 @@ var (
 	driverWrappers   = map[string]DriverWrapperFunc{"postgres": postgres.NewDB}
 )
 
+type AdhocDBConfig struct {
+	MaxIdleConns    *int           `env:"MAX_IDLE_CONNS"`
+	MaxOpenConns    *int           `env:"MAX_OPEN_CONNS"`
+	ConnMaxLifetime *time.Duration `env:"CONN_MAX_LIFETIME"`
+}
+
+func (ac *AdhocDBConfig) Options() []DBOption {
+	var res []DBOption
+
+	if ac.MaxIdleConns != nil {
+		res = append(res, WithMaxIdleConns(*ac.MaxIdleConns))
+	}
+
+	if ac.MaxOpenConns != nil {
+		res = append(res, WithMaxOpenConns(*ac.MaxOpenConns))
+	}
+
+	if ac.ConnMaxLifetime != nil {
+		res = append(res, WithConnMaxLifetime(*ac.ConnMaxLifetime))
+	}
+
+	return res
+}
+
+type AdhocConfig struct {
+	UseMasterForReads bool          `env:"USE_MASTER_FOR_READS"`
+	GlobalConfig      AdhocDBConfig `env:"GLOBAL"`
+}
+
+func (ac *AdhocConfig) Options() []Option {
+	var res []Option
+
+	if ac.UseMasterForReads {
+		res = append(res, UseMasterForReads)
+	}
+
+	if dbOpts := ac.GlobalConfig.Options(); len(dbOpts) > 0 {
+		res = append(res, WithGlobalDBOptions(dbOpts...))
+	}
+
+	return res
+}
+
 func RegisterDriverWrapper(d string, fn DriverWrapperFunc) {
 	driverWrappersMu.Lock()
 	defer driverWrappersMu.Unlock()
@@ -144,6 +187,10 @@ func (b *builder) buildDB() (sql.DB, error) {
 		return roundrobin.NewDB(append(masters, slaves...)...), nil
 	}
 
+	if b.useMasterForReads {
+		slaves = append(slaves, masters...)
+	}
+
 	return replication.NewDB(
 		dbs(masters).buildDB(),
 		dbs(slaves).buildDB(),
@@ -156,10 +203,14 @@ type builder struct {
 	middlewares []sql.MiddlewareFactory
 	options     []DBOption
 
+	useMasterForReads bool
+
 	parser sqlparser.SQLParser
 }
 
 type Option func(*builder)
+
+func UseMasterForReads(b *builder) { b.useMasterForReads = true }
 
 func WithDatabase(driver, dsn string, readOnly bool, opts ...DBOption) Option {
 	i := dbInput{driver: driver, uri: dsn, isMaster: !readOnly}
