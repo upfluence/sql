@@ -20,7 +20,7 @@ func (us UpdateStatement) Clone() UpdateStatement {
 	}
 }
 
-func writeUpdateClause(f Marker, qw *queryWriter, vs map[string]interface{}) error {
+func writeUpdateClause(f Marker, qw QueryWriter, vs map[string]interface{}) error {
 	if qs, ok := f.(QuerySegment); ok {
 		return qs.WriteTo(qw, vs)
 	}
@@ -36,6 +36,22 @@ func writeUpdateClause(f Marker, qw *queryWriter, vs map[string]interface{}) err
 	return err
 }
 
+func writeUpdateClauses(fs []Marker, qw QueryWriter, vs map[string]interface{}) error {
+	for i, f := range fs {
+		fmt.Fprintf(qw, "%s = ", columnName(f))
+
+		if err := writeUpdateClause(f, qw, vs); err != nil {
+			return err
+		}
+
+		if i < len(fs)-1 {
+			io.WriteString(qw, ", ")
+		}
+	}
+
+	return nil
+}
+
 func (us UpdateStatement) buildQuery(vs map[string]interface{}) (string, []interface{}, error) {
 	var qw queryWriter
 
@@ -45,16 +61,8 @@ func (us UpdateStatement) buildQuery(vs map[string]interface{}) (string, []inter
 
 	fmt.Fprintf(&qw, "UPDATE %s SET ", us.Table)
 
-	for i, f := range us.Fields {
-		fmt.Fprintf(&qw, "%s = ", columnName(f))
-
-		if err := writeUpdateClause(f, &qw, vs); err != nil {
-			return "", nil, err
-		}
-
-		if i < len(us.Fields)-1 {
-			qw.WriteString(", ")
-		}
+	if err := writeUpdateClauses(us.Fields, &qw, vs); err != nil {
+		return "", nil, err
 	}
 
 	if us.WhereClause == nil {

@@ -54,6 +54,37 @@ func TestInsertQuery(t *testing.T) {
 			stmt: "INSERT INTO foo(buz) VALUES ($1)",
 			args: []interface{}{1, &sql.Returning{Field: "bar"}},
 		},
+		{
+			name: "with on conflict nothing",
+			is: InsertStatement{
+				Table:  "foo",
+				Fields: []Marker{Column("buz")},
+				OnConfict: &OnConflictClause{
+					Action: Nothing,
+				},
+			},
+			vs:   map[string]interface{}{"buz": 1},
+			stmt: "INSERT INTO foo(buz) VALUES ($1) ON CONFLICT DO NOTHING",
+			args: []interface{}{1},
+		},
+		{
+			name: "with on conflict update",
+			is: InsertStatement{
+				Table:  "foo",
+				Fields: []Marker{Column("buz")},
+				OnConfict: &OnConflictClause{
+					Target: &OnConflictTarget{
+						Fields: []Marker{Column("buz")},
+					},
+					Action: Update{
+						Column("bar"),
+					},
+				},
+			},
+			vs:   map[string]interface{}{"buz": 1, "bar": 2},
+			stmt: "INSERT INTO foo(buz) VALUES ($1) ON CONFLICT (buz) DO UPDATE SET bar = $2",
+			args: []interface{}{1, 2},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			stmt, args, err := tt.is.Clone().buildQuery(tt.vs)
