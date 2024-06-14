@@ -34,6 +34,8 @@ type Statement struct {
 	Returning *sql.Returning
 
 	Mode Mode
+
+	QueryConstrained bool
 }
 
 func (s Statement) mode() Mode {
@@ -52,6 +54,7 @@ type Upserter struct {
 	ExecuteTxOptions []sql.ExecuteTxOption
 }
 
+func (u *Upserter) queryer() sql.Queryer { return u.DB }
 func (u *Upserter) executeTx(ctx context.Context, fn func(sql.Queryer) error) error {
 	return sql.ExecuteTx(
 		ctx,
@@ -72,6 +75,7 @@ type queryerTxExecutor struct {
 	sql.Queryer
 }
 
+func (qte *queryerTxExecutor) queryer() sql.Queryer { return qte.Queryer }
 func (qte *queryerTxExecutor) executeTx(ctx context.Context, fn func(sql.Queryer) error) error {
 	switch err := fn(qte); err {
 	case nil, sql.ErrRollback:

@@ -3,6 +3,7 @@ package upserter
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"reflect"
 
 	"github.com/upfluence/sql"
@@ -16,6 +17,7 @@ func (ee errExecer) Exec(context.Context, map[string]interface{}) (sql.Result, e
 }
 
 type txExecutor interface {
+	queryer() sql.Queryer
 	executeTx(context.Context, func(sql.Queryer) error) error
 }
 
@@ -37,6 +39,76 @@ type execer struct {
 func newExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 	if len(stmt.QueryValues) == 0 {
 		return errExecer{errNoQueryValues}
+	}
+
+	if stmt.QueryConstrained {
+		qb := sqlbuilder.QueryBuilder{Queryer: te.queryer()}
+
+		switch stmt.mode() {
+		case Upsert:
+			var action sqlbuilder.OnConflictAction = sqlbuilder.Nothing
+
+			if len(stmt.SetValues) > 0 {
+				action = sqlbuilder.Update(stmt.SetValues)
+			}
+
+			return qb.PrepareInsert(
+				sqlbuilder.InsertStatement{
+					Table: stmt.Table,
+					Fields: append(
+						append(
+							append([]sqlbuilder.Marker{}, stmt.QueryValues...),
+							stmt.InsertValues...,
+						),
+						stmt.SetValues...,
+					),
+					OnConfict: &sqlbuilder.OnConflictClause{
+						Target: &sqlbuilder.OnConflictTarget{
+							Fields: stmt.QueryValues,
+						},
+						Action: action,
+					},
+					Returning: stmt.Returning,
+				},
+			)
+		case Insert:
+			return qb.PrepareInsert(
+				sqlbuilder.InsertStatement{
+					Table: stmt.Table,
+					Fields: append(
+						append(
+							append([]sqlbuilder.Marker{}, stmt.QueryValues...),
+							stmt.InsertValues...,
+						),
+						stmt.SetValues...,
+					),
+					OnConfict: &sqlbuilder.OnConflictClause{
+						Target: &sqlbuilder.OnConflictTarget{
+							Fields: stmt.QueryValues,
+						},
+						Action: sqlbuilder.Nothing,
+					},
+					Returning: stmt.Returning,
+				},
+			)
+		case Update:
+			clauses := make([]sqlbuilder.PredicateClause, len(stmt.QueryValues))
+
+			for i, v := range stmt.QueryValues {
+				clauses[i] = sqlbuilder.Eq(v)
+			}
+
+			return qb.PrepareUpdate(
+				sqlbuilder.UpdateStatement{
+					Table:       stmt.Table,
+					Fields:      stmt.SetValues,
+					WhereClause: sqlbuilder.And(clauses...),
+				},
+			)
+		default:
+			return errExecer{fmt.Errorf("invalid mode: %d", stmt.Mode)}
+		}
+
 	}
 
 	var (
