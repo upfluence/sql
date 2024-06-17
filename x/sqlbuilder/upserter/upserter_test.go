@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/assert"
 	"github.com/upfluence/log"
 
 	"github.com/upfluence/sql"
@@ -75,55 +76,64 @@ func TestUpserterRegular(t *testing.T) {
 				map[string]string{
 					"1_initial.up.sql":   "CREATE TABLE foo (x TEXT, y TEXT, z TEXT)",
 					"1_initial.down.sql": "DROP TABLE foo",
+					"2_initial.up.sql":   "CREATE UNIQUE INDEX foo_pk ON foo(x)",
+					"2_initial.down.sql": "DROP INDEX foo_pk",
 				},
 			),
 		),
 	).Run(t, func(t *testing.T, db sql.DB) {
 		ctx := context.Background()
 		u := Upserter{DB: db}
-		e := u.PrepareUpsert(
-			UpsertStatement{
-				Table:       "foo",
-				QueryValues: []sqlbuilder.Marker{sqlbuilder.Column("x")},
-				SetValues: []sqlbuilder.Marker{
-					sqlbuilder.Column("y"),
-					sqlbuilder.Column("z"),
+
+		for qc, result := range map[bool]int64{false: 0, true: 1} {
+			_, err := db.Exec(ctx, "DELETE FROM foo")
+			assert.NoError(t, err)
+
+			e := u.PrepareUpsert(
+				UpsertStatement{
+					Table:       "foo",
+					QueryValues: []sqlbuilder.Marker{sqlbuilder.Column("x")},
+					SetValues: []sqlbuilder.Marker{
+						sqlbuilder.Column("y"),
+						sqlbuilder.Column("z"),
+					},
+					QueryConstrained: qc,
 				},
-			},
-		)
+			)
 
-		res, err := e.Exec(
-			ctx,
-			map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
-		)
+			res, err := e.Exec(
+				ctx,
+				map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+			)
 
-		if err != nil {
-			t.Fatalf("Exec() = %v [ want nil ]", err)
+			if err != nil {
+				t.Fatalf("Exec() = %v [ want nil ]", err)
+			}
+
+			assertResultAffected(t, res, 1)
+
+			res, err = e.Exec(
+				ctx,
+				map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+			)
+
+			if err != nil {
+				t.Fatalf("Exec() = %v [ want nil ]", err)
+			}
+
+			assertResultAffected(t, res, result)
+
+			res, err = e.Exec(
+				ctx,
+				map[string]interface{}{"x": "foo", "y": "barz", "z": "buz"},
+			)
+
+			if err != nil {
+				t.Fatalf("Exec() = %v [ want nil ]", err)
+			}
+
+			assertResultAffected(t, res, 1)
 		}
-
-		assertResultAffected(t, res, 1)
-
-		res, err = e.Exec(
-			ctx,
-			map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
-		)
-
-		if err != nil {
-			t.Fatalf("Exec() = %v [ want nil ]", err)
-		}
-
-		assertResultAffected(t, res, 0)
-
-		res, err = e.Exec(
-			ctx,
-			map[string]interface{}{"x": "foo", "y": "barz", "z": "buz"},
-		)
-
-		if err != nil {
-			t.Fatalf("Exec() = %v [ want nil ]", err)
-		}
-
-		assertResultAffected(t, res, 1)
 	})
 }
 
@@ -135,6 +145,8 @@ func TestUpserterReturning(t *testing.T) {
 					"1_initial.up.sqlite3":  "CREATE TABLE foo (x INTEGER PRIMARY KEY AUTOINCREMENT, y TEXT, z TEXT)",
 					"1_initial.up.postgres": "CREATE TABLE foo (x SERIAL PRIMARY KEY, y TEXT, z TEXT)",
 					"1_initial.down.sql":    "DROP TABLE foo",
+					"2_initial.up.sql":      "CREATE UNIQUE INDEX foo_pk ON foo(y)",
+					"2_initial.down.sql":    "DROP INDEX foo_pk",
 				},
 			),
 		),
@@ -207,54 +219,63 @@ func TestUpserterInsertValue(t *testing.T) {
 				map[string]string{
 					"1_initial.up.sql":   "CREATE TABLE foo (x TEXT, y TEXT, z TEXT)",
 					"1_initial.down.sql": "DROP TABLE foo",
+					"2_initial.up.sql":   "CREATE UNIQUE INDEX foo_pk ON foo(x)",
+					"2_initial.down.sql": "DROP INDEX foo_pk",
 				},
 			),
 		),
 	).Run(t, func(t *testing.T, db sql.DB) {
 		ctx := context.Background()
 		u := Upserter{DB: db}
-		e := u.PrepareUpsert(
-			UpsertStatement{
-				Table:        "foo",
-				QueryValues:  []sqlbuilder.Marker{sqlbuilder.Column("x")},
-				SetValues:    []sqlbuilder.Marker{sqlbuilder.Column("z")},
-				InsertValues: []sqlbuilder.Marker{sqlbuilder.Column("y")},
-			},
-		)
 
-		_, err := e.Exec(
-			ctx,
-			map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
-		)
+		for _, qc := range []bool{false, true} {
+			_, err := db.Exec(ctx, "DELETE FROM foo")
+			assert.NoError(t, err)
 
-		if err != nil {
-			t.Fatalf("Exec() = %v [ want nil ]", err)
-		}
+			e := u.PrepareUpsert(
+				UpsertStatement{
+					Table:            "foo",
+					QueryValues:      []sqlbuilder.Marker{sqlbuilder.Column("x")},
+					SetValues:        []sqlbuilder.Marker{sqlbuilder.Column("z")},
+					InsertValues:     []sqlbuilder.Marker{sqlbuilder.Column("y")},
+					QueryConstrained: qc,
+				},
+			)
 
-		_, err = e.Exec(
-			ctx,
-			map[string]interface{}{"x": "foo", "y": "far", "z": "fuz"},
-		)
+			_, err = e.Exec(
+				ctx,
+				map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+			)
 
-		if err != nil {
-			t.Fatalf("Exec() = %v [ want nil ]", err)
-		}
+			if err != nil {
+				t.Fatalf("Exec() = %v [ want nil ]", err)
+			}
 
-		var y, z string
+			_, err = e.Exec(
+				ctx,
+				map[string]interface{}{"x": "foo", "y": "far", "z": "fuz"},
+			)
 
-		if err := db.QueryRow(ctx, "SELECT y, z FROM foo WHERE x = $1", "foo").Scan(
-			&y,
-			&z,
-		); err != nil {
-			t.Fatalf("QueryRow() = _, %v [ want nil ]", err)
-		}
+			if err != nil {
+				t.Fatalf("Exec() = %v [ want nil ]", err)
+			}
 
-		if y != "bar" {
-			t.Errorf("y = %q  [ want \"bar\" ]", y)
-		}
+			var y, z string
 
-		if z != "fuz" {
-			t.Errorf("z = %q  [ want \"fuz\" ]", z)
+			if err := db.QueryRow(ctx, "SELECT y, z FROM foo WHERE x = $1", "foo").Scan(
+				&y,
+				&z,
+			); err != nil {
+				t.Fatalf("QueryRow() = _, %v [ want nil ]", err)
+			}
+
+			if y != "bar" {
+				t.Errorf("y = %q  [ want \"bar\" ]", y)
+			}
+
+			if z != "fuz" {
+				t.Errorf("z = %q  [ want \"fuz\" ]", z)
+			}
 		}
 	})
 }
@@ -272,32 +293,39 @@ func TestUpserterUpdateOnly(t *testing.T) {
 	).Run(t, func(t *testing.T, db sql.DB) {
 		ctx := context.Background()
 		u := Upserter{DB: db}
-		e := u.PrepareUpsert(
-			UpsertStatement{
-				Table:        "foo",
-				QueryValues:  []sqlbuilder.Marker{sqlbuilder.Column("x")},
-				SetValues:    []sqlbuilder.Marker{sqlbuilder.Column("z")},
-				InsertValues: []sqlbuilder.Marker{sqlbuilder.Column("y")},
-				Mode:         Update,
-			},
-		)
 
-		res, err := e.Exec(
-			ctx,
-			map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
-		)
+		for _, qc := range []bool{false, true} {
+			_, err := db.Exec(ctx, "DELETE FROM foo")
+			assert.NoError(t, err)
 
-		if err != nil {
-			t.Fatalf("Exec() = %v [ want nil ]", err)
-		}
+			e := u.PrepareUpsert(
+				UpsertStatement{
+					Table:            "foo",
+					QueryValues:      []sqlbuilder.Marker{sqlbuilder.Column("x")},
+					SetValues:        []sqlbuilder.Marker{sqlbuilder.Column("z")},
+					InsertValues:     []sqlbuilder.Marker{sqlbuilder.Column("y")},
+					Mode:             Update,
+					QueryConstrained: qc,
+				},
+			)
 
-		assertResultAffected(t, res, 0)
+			res, err := e.Exec(
+				ctx,
+				map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+			)
 
-		if err := db.QueryRow(ctx, "SELECT y, z FROM foo WHERE x = $1", "foo").Scan(
-			nil,
-			nil,
-		); err != sql.ErrNoRows {
-			t.Fatalf("QueryRow() = _, %v [ want sql.ErrNoRows ]", err)
+			if err != nil {
+				t.Fatalf("Exec() = %v [ want nil ]", err)
+			}
+
+			assertResultAffected(t, res, 0)
+
+			if err := db.QueryRow(ctx, "SELECT y, z FROM foo WHERE x = $1", "foo").Scan(
+				nil,
+				nil,
+			); err != sql.ErrNoRows {
+				t.Fatalf("QueryRow() = _, %v [ want sql.ErrNoRows ]", err)
+			}
 		}
 	})
 }
@@ -309,59 +337,67 @@ func TestUpserterInsertOnly(t *testing.T) {
 				map[string]string{
 					"1_initial.up.sql":   "CREATE TABLE foo (x TEXT, y TEXT, z TEXT)",
 					"1_initial.down.sql": "DROP TABLE foo",
+					"2_initial.up.sql":   "CREATE UNIQUE INDEX foo_pk ON foo(x)",
+					"2_initial.down.sql": "DROP INDEX foo_pk",
 				},
 			),
 		),
 	).Run(t, func(t *testing.T, db sql.DB) {
 		ctx := context.Background()
 		u := Upserter{DB: db}
-		e := u.PrepareUpsert(
-			UpsertStatement{
-				Table:        "foo",
-				QueryValues:  []sqlbuilder.Marker{sqlbuilder.Column("x")},
-				SetValues:    []sqlbuilder.Marker{sqlbuilder.Column("z")},
-				InsertValues: []sqlbuilder.Marker{sqlbuilder.Column("y")},
-				Mode:         Insert,
-			},
-		)
 
-		res, err := e.Exec(
-			ctx,
-			map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
-		)
+		for _, qc := range []bool{false, true} {
+			_, err := db.Exec(ctx, "DELETE FROM foo")
+			assert.NoError(t, err)
+			e := u.PrepareUpsert(
+				UpsertStatement{
+					Table:            "foo",
+					QueryValues:      []sqlbuilder.Marker{sqlbuilder.Column("x")},
+					SetValues:        []sqlbuilder.Marker{sqlbuilder.Column("z")},
+					InsertValues:     []sqlbuilder.Marker{sqlbuilder.Column("y")},
+					Mode:             Insert,
+					QueryConstrained: qc,
+				},
+			)
 
-		if err != nil {
-			t.Fatalf("Exec() = %v [ want nil ]", err)
-		}
+			res, err := e.Exec(
+				ctx,
+				map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+			)
 
-		assertResultAffected(t, res, 1)
+			if err != nil {
+				t.Fatalf("Exec() = %v [ want nil ]", err)
+			}
 
-		res, err = e.Exec(
-			ctx,
-			map[string]interface{}{"x": "foo", "y": "far", "z": "fuz"},
-		)
+			assertResultAffected(t, res, 1)
 
-		if err != nil {
-			t.Fatalf("Exec() = %v [ want nil ]", err)
-		}
+			res, err = e.Exec(
+				ctx,
+				map[string]interface{}{"x": "foo", "y": "far", "z": "fuz"},
+			)
 
-		assertResultAffected(t, res, 0)
+			if err != nil {
+				t.Fatalf("Exec() = %v [ want nil ]", err)
+			}
 
-		var y, z string
+			assertResultAffected(t, res, 0)
 
-		if err := db.QueryRow(ctx, "SELECT y, z FROM foo WHERE x = $1", "foo").Scan(
-			&y,
-			&z,
-		); err != nil {
-			t.Fatalf("QueryRow() = _, %v [ want nil ]", err)
-		}
+			var y, z string
 
-		if y != "bar" {
-			t.Errorf("y = %q  [ want \"bar\" ]", y)
-		}
+			if err := db.QueryRow(ctx, "SELECT y, z FROM foo WHERE x = $1", "foo").Scan(
+				&y,
+				&z,
+			); err != nil {
+				t.Fatalf("QueryRow() = _, %v [ want nil ]", err)
+			}
 
-		if z != "buz" {
-			t.Errorf("z = %q  [ want \"buz\" ]", z)
+			if y != "bar" {
+				t.Errorf("y = %q  [ want \"bar\" ]", y)
+			}
+
+			if z != "buz" {
+				t.Errorf("z = %q  [ want \"buz\" ]", z)
+			}
 		}
 	})
 }
@@ -373,6 +409,8 @@ func TestUpserterOnlyQueryValues(t *testing.T) {
 				map[string]string{
 					"1_initial.up.sql":   "CREATE TABLE foo (x TEXT)",
 					"1_initial.down.sql": "DROP TABLE foo",
+					"2_initial.up.sql":   "CREATE UNIQUE INDEX foo_pk ON foo(x)",
+					"2_initial.down.sql": "DROP INDEX foo_pk",
 				},
 			),
 		),
@@ -417,6 +455,8 @@ func TestInTxUpserterPristine(t *testing.T) {
 				map[string]string{
 					"1_initial.up.sql":   "CREATE TABLE foo (x TEXT)",
 					"1_initial.down.sql": "DROP TABLE foo",
+					"2_initial.up.sql":   "CREATE UNIQUE INDEX foo_pk ON foo(x)",
+					"2_initial.down.sql": "DROP INDEX foo_pk",
 				},
 			),
 		),
