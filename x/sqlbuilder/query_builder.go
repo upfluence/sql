@@ -52,6 +52,16 @@ type InsertExecer struct {
 	Statement    InsertStatement
 }
 
+func (ie *InsertExecer) MultiExec(ctx context.Context, vvs []map[string]interface{}, qvs map[string]interface{}) (sql.Result, error) {
+	stmt, vs, err := ie.Statement.buildQueries(vvs, qvs)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ie.qb.Exec(ctx, stmt, vs...)
+}
+
 type UpdateExecer struct {
 	execer
 

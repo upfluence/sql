@@ -126,6 +126,10 @@ func (is InsertStatement) Clone() InsertStatement {
 }
 
 func (is InsertStatement) buildQuery(qvs map[string]interface{}) (string, []interface{}, error) {
+	return is.buildQueries([]map[string]interface{}{qvs}, qvs)
+}
+
+func (is InsertStatement) buildQueries(vvs []map[string]interface{}, qvs map[string]interface{}) (string, []interface{}, error) {
 	var qw queryWriter
 
 	if len(is.Fields) == 0 {
@@ -142,23 +146,31 @@ func (is InsertStatement) buildQuery(qvs map[string]interface{}) (string, []inte
 		}
 	}
 
-	qw.WriteString(") VALUES (")
+	qw.WriteString(") VALUES ")
 
-	for i, f := range is.Fields {
-		v, ok := qvs[f.Binding()]
+	for i, lqvs := range vvs {
+		qw.WriteRune('(')
 
-		if !ok {
-			return "", nil, ErrMissingKey{Key: f.Binding()}
+		for i, f := range is.Fields {
+			v, ok := lqvs[f.Binding()]
+
+			if !ok {
+				return "", nil, ErrMissingKey{Key: f.Binding()}
+			}
+
+			qw.WriteString(qw.RedeemVariable(v))
+
+			if i < len(is.Fields)-1 {
+				qw.WriteString(", ")
+			}
 		}
 
-		qw.WriteString(qw.RedeemVariable(v))
+		qw.WriteRune(')')
 
-		if i < len(is.Fields)-1 {
+		if i < len(vvs)-1 {
 			qw.WriteString(", ")
 		}
 	}
-
-	qw.WriteRune(')')
 
 	if oc := is.OnConfict; oc != nil {
 		qw.WriteString(" ON CONFLICT ")
