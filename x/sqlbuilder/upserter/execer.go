@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/upfluence/errors"
 	"github.com/upfluence/sql"
 	"github.com/upfluence/sql/x/sqlbuilder"
 )
@@ -52,7 +53,7 @@ func newExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 				action = sqlbuilder.Update(stmt.SetValues)
 			}
 
-			return qb.PrepareInsert(
+			e := qb.PrepareInsert(
 				sqlbuilder.InsertStatement{
 					Table: stmt.Table,
 					Fields: append(
@@ -71,6 +72,20 @@ func newExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 					Returning: stmt.Returning,
 				},
 			)
+
+			return &sqlbuilder.RetryExecer{
+				Execer: e,
+				ShouldRetry: func(err error) bool {
+					var ce sql.ConstraintError
+
+					if !errors.As(err, &ce) {
+						return false
+					}
+
+					return ce.Type == sql.PrimaryKey || ce.Type == sql.Unique
+				},
+				RetryCount: -1,
+			}
 		case Insert:
 			return qb.PrepareInsert(
 				sqlbuilder.InsertStatement{

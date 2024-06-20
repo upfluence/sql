@@ -24,3 +24,22 @@ func (e execer) Exec(ctx context.Context, qvs map[string]interface{}) (sql.Resul
 
 	return e.qb.Exec(ctx, stmt, vs...)
 }
+
+type RetryExecer struct {
+	Execer      Execer
+	ShouldRetry func(error) bool
+	RetryCount  int
+}
+
+func (re *RetryExecer) Exec(ctx context.Context, qvs map[string]interface{}) (sql.Result, error) {
+	var i int
+
+	for {
+		i++
+		res, err := re.Execer.Exec(ctx, qvs)
+
+		if err == nil || !re.ShouldRetry(err) || i > re.RetryCount {
+			return res, err
+		}
+	}
+}
