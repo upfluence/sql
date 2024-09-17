@@ -104,7 +104,7 @@ func TestUpserterRegular(t *testing.T) {
 
 			res, err := e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": stringOverloaded("bar"), "z": "buz"},
+				map[string]interface{}{"x": "foo", "y": nilDBValue{}, "z": "buz"},
 			)
 
 			if err != nil {
@@ -115,7 +115,18 @@ func TestUpserterRegular(t *testing.T) {
 
 			res, err = e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": stringOverloaded("bar"), "z": "buz"},
+				map[string]interface{}{"x": "foo", "y": stringDBValue("bar"), "z": "buz"},
+			)
+
+			if err != nil {
+				t.Fatalf("Exec() = %v [ want nil ]", err)
+			}
+
+			assertResultAffected(t, res, 1)
+
+			res, err = e.Exec(
+				ctx,
+				map[string]interface{}{"x": "foo", "y": stringDBValue("bar"), "z": "buz"},
 			)
 
 			if err != nil {
@@ -449,9 +460,13 @@ func TestUpserterOnlyQueryValues(t *testing.T) {
 	})
 }
 
-type stringOverloaded string
+type nilDBValue struct{}
 
-func (s stringOverloaded) Value() (driver.Value, error) { return []byte(s), nil }
+func (nilDBValue) Value() (driver.Value, error) { return nil, nil }
+
+type stringDBValue string
+
+func (s stringDBValue) Value() (driver.Value, error) { return []byte(s), nil }
 
 func TestInTxUpserterPristine(t *testing.T) {
 	sqltest.NewTestCase(

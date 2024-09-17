@@ -201,12 +201,14 @@ func newExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 
 func cloneValue(v any) (any, error) {
 	if dv, ok := v.(driver.Valuer); ok {
-		var err error
-
-		v, err = dv.Value()
+		vv, err := dv.Value()
 
 		if err != nil {
 			return nil, err
+		}
+
+		if vv != nil {
+			v = vv
 		}
 	}
 
@@ -215,12 +217,14 @@ func cloneValue(v any) (any, error) {
 
 func equalValues(x, y any) (bool, error) {
 	if dy, ok := y.(driver.Valuer); ok {
-		var err error
-
-		y, err = dy.Value()
+		yy, err := dy.Value()
 
 		if err != nil {
 			return false, err
+		}
+
+		if yy != nil {
+			y = yy
 		}
 	}
 
