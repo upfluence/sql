@@ -2,6 +2,7 @@ package upserter
 
 import (
 	"context"
+	"database/sql/driver"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -103,7 +104,7 @@ func TestUpserterRegular(t *testing.T) {
 
 			res, err := e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+				map[string]interface{}{"x": "foo", "y": stringOverloaded("bar"), "z": "buz"},
 			)
 
 			if err != nil {
@@ -114,7 +115,7 @@ func TestUpserterRegular(t *testing.T) {
 
 			res, err = e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+				map[string]interface{}{"x": "foo", "y": stringOverloaded("bar"), "z": "buz"},
 			)
 
 			if err != nil {
@@ -447,6 +448,10 @@ func TestUpserterOnlyQueryValues(t *testing.T) {
 		assertResultAffected(t, res, 0)
 	})
 }
+
+type stringOverloaded string
+
+func (s stringOverloaded) Value() (driver.Value, error) { return []byte(s), nil }
 
 func TestInTxUpserterPristine(t *testing.T) {
 	sqltest.NewTestCase(

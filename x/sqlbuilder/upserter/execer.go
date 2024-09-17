@@ -1,10 +1,12 @@
 package upserter
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/upfluence/errors"
 	"github.com/upfluence/sql"
@@ -123,7 +125,6 @@ func newExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 		default:
 			return errExecer{fmt.Errorf("invalid mode: %d", stmt.Mode)}
 		}
-
 	}
 
 	var (
@@ -198,6 +199,47 @@ func newExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 	return &e
 }
 
+func cloneValue(v any) (any, error) {
+	if dv, ok := v.(driver.Valuer); ok {
+		var err error
+
+		v, err = dv.Value()
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return reflect.New(reflect.TypeOf(v)).Interface(), nil
+}
+
+func equalValues(x, y any) (bool, error) {
+	if dy, ok := y.(driver.Valuer); ok {
+		var err error
+
+		y, err = dy.Value()
+
+		if err != nil {
+			return false, err
+		}
+	}
+
+	switch yy := y.(type) {
+	case time.Time:
+		if xx, ok := x.(time.Time); ok {
+			return xx.Equal(yy), nil
+		}
+	case []byte:
+		if xx, ok := x.([]byte); ok {
+			return bytes.Equal(yy, xx), nil
+		}
+	default:
+		return reflect.DeepEqual(x, y), nil
+	}
+
+	return false, nil
+}
+
 func (e *execer) Exec(ctx context.Context, vs map[string]interface{}) (sql.Result, error) {
 	var (
 		res    sql.Result
@@ -225,7 +267,13 @@ func (e *execer) Exec(ctx context.Context, vs map[string]interface{}) (sql.Resul
 			return nil, sqlbuilder.ErrMissingKey{Key: f}
 		}
 
-		existing[f] = reflect.New(reflect.TypeOf(v)).Interface()
+		var err error
+
+		existing[f], err = cloneValue(v)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if m := e.returningMarker; m != nil {
@@ -244,10 +292,13 @@ func (e *execer) Exec(ctx context.Context, vs map[string]interface{}) (sql.Resul
 			pristine := true
 
 			for _, sf := range e.sfs {
-				if !reflect.DeepEqual(
-					reflect.ValueOf(existing[sf]).Elem().Interface(),
-					vs[sf],
-				) {
+				ok, err := equalValues(reflect.ValueOf(existing[sf]).Elem().Interface(), vs[sf])
+
+				if err != nil {
+					return err
+				}
+
+				if !ok {
 					pristine = false
 					break
 				}
