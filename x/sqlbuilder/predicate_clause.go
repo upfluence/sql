@@ -318,7 +318,7 @@ func (bc *basicClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
 	return bc.fn(w, vv, bc.m.ToSQL())
 }
 
-func writeInClause(w QueryWriter, vv interface{}, k string) error {
+func writeInClauseBasic(w QueryWriter, vv interface{}, k string) error {
 	v := reflect.ValueOf(vv)
 
 	if k := v.Kind(); k != reflect.Slice && k != reflect.Array {
