@@ -18,7 +18,7 @@ func (er ErrReader) WithPagination(Pagination) Reader {
 	return er
 }
 
-func (er ErrReader) WithOrdering(sqlbuilder.OrderByClause) Reader {
+func (er ErrReader) WithOrdering(...sqlbuilder.OrderByClause) Reader {
 	return er
 }
 
