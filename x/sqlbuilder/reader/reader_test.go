@@ -113,6 +113,19 @@ func TestReader(t *testing.T) {
 
 		assertReader(t, or, []int64{2, 1})
 
+		or = zr.WithOrdering(
+			sqlbuilder.OrderByClause{
+				Field:     sqlbuilder.Column("y"),
+				Direction: sqlbuilder.Desc,
+			},
+			sqlbuilder.OrderByClause{
+				Field:     sqlbuilder.Column("x"),
+				Direction: sqlbuilder.Desc,
+			},
+		)
+
+		assertReader(t, or, []int64{1, 2})
+
 		pr1 := zr.WithPagination(Pagination{Limit: 1, Offset: 1})
 		assertReader(t, pr1, []int64{2})
 
