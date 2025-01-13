@@ -46,3 +46,9 @@ jobs:
         run: go test -p 1 -v ./...
         env:
           POSTGRES_URL: postgres://postgres:postgres@localhost:5432/tata_test?sslmode=disable
+
+  release:
+    needs: test
+    if: github.ref == 'refs/heads/master'
+    uses: upfluence/actions/.github/workflows/lib-any-release.yml@master
+    secrets: inherit
