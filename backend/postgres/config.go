@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
+	"strconv"
 	"sync"
+	"time"
 )
 
 type DBRole string
@@ -47,6 +49,10 @@ type Config struct {
 	CACerts []*x509.Certificate
 
 	Role DBRole
+
+	StatementTimeout time.Duration
+
+	ConnectionArguments map[string]string
 
 	certOnce sync.Once
 	certErr  error
@@ -155,6 +161,17 @@ func (c *Config) DSN() (string, error) {
 
 	if c.ApplicationName != "" {
 		q.Add("application_name", c.ApplicationName)
+	}
+
+	if c.StatementTimeout > 0 {
+		q.Add(
+			"statement_timeout",
+			strconv.Itoa(int(c.StatementTimeout.Milliseconds())),
+		)
+	}
+
+	for k, v := range c.ConnectionArguments {
+		q.Add(k, v)
 	}
 
 	u := url.URL{

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -18,6 +19,10 @@ func TestDSN(t *testing.T) {
 		{
 			c:   &Config{DBName: "foobar", CACertFile: "foobar", ApplicationName: "buz"},
 			dsn: "postgres://localhost:5432/foobar?application_name=buz&sslmode=verify-ca&sslrootcert=foobar&sslsni=0",
+		},
+		{
+			c:   &Config{DBName: "foobar", ConnectionArguments: map[string]string{"foo": "bar"}, StatementTimeout: 2 * time.Second},
+			dsn: "postgres://localhost:5432/foobar?foo=bar&sslmode=disable&sslsni=0&statement_timeout=2000",
 		},
 	} {
 		dsn, err := tt.c.DSN()
