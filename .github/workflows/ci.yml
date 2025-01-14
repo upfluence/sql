@@ -33,6 +33,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
+          cache: false
       - name: Checkout
         uses: actions/checkout@v4
       - name: Cache Modules
