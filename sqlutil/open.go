@@ -81,6 +81,12 @@ type DriverWrapperFunc func(sql.DB, sqlparser.SQLParser) sql.DB
 
 type DBOption func(*dbInput)
 
+func WithStdDBCallback(fn func(*stdsql.DB)) DBOption {
+	return func(i *dbInput) {
+		i.dbCallbacks = append(i.dbCallbacks, fn)
+	}
+}
+
 func WithMaxIdleConns(v int) DBOption {
 	return func(i *dbInput) {
 		v := v
@@ -111,6 +117,8 @@ type dbInput struct {
 	maxIdleConns *int
 	maxOpenConns *int
 	maxLifetime  *time.Duration
+
+	dbCallbacks []func(*stdsql.DB)
 }
 
 func (i *dbInput) prepareDB(db *stdsql.DB) {
@@ -135,6 +143,10 @@ func (i *dbInput) buildDB(p sqlparser.SQLParser) (sql.DB, error) {
 	}
 
 	i.prepareDB(plainDB)
+
+	for _, fn := range i.dbCallbacks {
+		fn(plainDB)
+	}
 
 	db := simple.FromStdDB(plainDB, i.driver)
 
