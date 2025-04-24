@@ -85,6 +85,32 @@ func TestInsertQuery(t *testing.T) {
 			stmt: "INSERT INTO foo(buz) VALUES ($1) ON CONFLICT (buz) DO UPDATE SET bar = $2",
 			args: []interface{}{1, 2},
 		},
+		{
+			name: "with returning + isQuery",
+			is: InsertStatement{
+				Table:     "foo",
+				Fields:    []Marker{Column("buz")},
+				Returning: &sql.Returning{Field: "buz"},
+				isQuery:   true,
+			},
+			vs:   map[string]interface{}{"buz": 1},
+			stmt: "INSERT INTO foo(buz) VALUES ($1) RETURNING buz",
+			args: []interface{}{1},
+		},
+		{
+			name: "with returnings ",
+			is: InsertStatement{
+				Table:  "foo",
+				Fields: []Marker{Column("buz")},
+				Returnings: []*sql.Returning{
+					{Field: "buz"},
+					{Field: "bar"},
+				},
+			},
+			vs:   map[string]interface{}{"buz": 1},
+			stmt: "INSERT INTO foo(buz) VALUES ($1) RETURNING buz, bar",
+			args: []interface{}{1},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			stmt, args, err := tt.is.Clone().buildQuery(tt.vs)

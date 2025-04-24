@@ -52,6 +52,27 @@ type InsertExecer struct {
 	Statement    InsertStatement
 }
 
+type errScanner struct {
+	error
+}
+
+func (es errScanner) Scan(...interface{}) error {
+	return es.error
+}
+
+func (ie *InsertExecer) QueryRow(ctx context.Context, qvs map[string]interface{}) sql.Scanner {
+	stmt := ie.Statement
+	stmt.isQuery = true
+
+	sstmt, vs, err := stmt.buildQuery(qvs)
+
+	if err != nil {
+		return errScanner{error: err}
+	}
+
+	return ie.qb.QueryRow(ctx, sstmt, vs...)
+}
+
 func (ie *InsertExecer) MultiExec(ctx context.Context, vvs []map[string]interface{}, qvs map[string]interface{}) (sql.Result, error) {
 	stmt, vs, err := ie.Statement.buildQueries(vvs, qvs)
 
