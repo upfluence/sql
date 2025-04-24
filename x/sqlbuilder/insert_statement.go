@@ -3,6 +3,8 @@ package sqlbuilder
 import (
 	"fmt"
 	"io"
+	"slices"
+	"strings"
 
 	"github.com/upfluence/sql"
 )
@@ -104,8 +106,14 @@ type InsertStatement struct {
 
 	Fields []Marker
 
+	// Deprecated: Please use Returnings
 	Returning *sql.Returning
+
+	Returnings []*sql.Returning
+
 	OnConfict *OnConflictClause
+
+	isQuery bool
 }
 
 func (is InsertStatement) Clone() InsertStatement {
@@ -118,11 +126,25 @@ func (is InsertStatement) Clone() InsertStatement {
 	}
 
 	return InsertStatement{
-		Table:     is.Table,
-		Fields:    cloneMarkers(is.Fields),
-		Returning: r,
-		OnConfict: is.OnConfict.Clone(),
+		Table:      is.Table,
+		Fields:     cloneMarkers(is.Fields),
+		Returnings: slices.Clone(is.Returnings),
+		Returning:  r,
+		isQuery:    is.isQuery,
+		OnConfict:  is.OnConfict.Clone(),
 	}
+}
+
+func (is InsertStatement) returnings() []*sql.Returning {
+	var res []*sql.Returning
+
+	res = append(res, is.Returnings...)
+
+	if is.Returning != nil {
+		res = append(res, is.Returning)
+	}
+
+	return res
 }
 
 func (is InsertStatement) buildQuery(qvs map[string]interface{}) (string, []interface{}, error) {
@@ -190,8 +212,23 @@ func (is InsertStatement) buildQueries(vvs []map[string]interface{}, qvs map[str
 		}
 	}
 
-	if is.Returning != nil {
-		qw.vs = append(qw.vs, is.Returning)
+	switch rs := is.returnings(); len(rs) {
+	case 0:
+	case 1:
+		if !is.isQuery {
+			qw.vs = append(qw.vs, is.Returning)
+			break
+		}
+
+		fallthrough
+	default:
+		var fields = make([]string, len(rs))
+
+		for i, r := range rs {
+			fields[i] = r.Field
+		}
+
+		fmt.Fprintf(&qw, " RETURNING %s", strings.Join(fields, ", "))
 	}
 
 	return qw.String(), qw.vs, nil
