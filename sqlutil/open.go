@@ -17,8 +17,12 @@ import (
 
 var (
 	defaultOptions = &builder{
-		parser:  sqlparser.DefaultSQLParser(),
-		options: []DBOption{WithMaxOpenConns(128)},
+		parser: sqlparser.DefaultSQLParser(),
+		options: []DBOption{
+			WithMaxOpenConns(128),
+			WithMaxIdleConns(16),
+			WithConnMaxIdleTime(2 * time.Minute),
+		},
 	}
 
 	ErrNoDBProvided = errors.New("No DB provided")
@@ -31,6 +35,7 @@ type AdhocDBConfig struct {
 	MaxIdleConns    *int           `env:"MAX_IDLE_CONNS"`
 	MaxOpenConns    *int           `env:"MAX_OPEN_CONNS"`
 	ConnMaxLifetime *time.Duration `env:"CONN_MAX_LIFETIME"`
+	ConnMaxIdleTime *time.Duration `env:"CONN_MAX_IDLE_TIME"`
 }
 
 func (ac *AdhocDBConfig) Options() []DBOption {
@@ -46,6 +51,10 @@ func (ac *AdhocDBConfig) Options() []DBOption {
 
 	if ac.ConnMaxLifetime != nil {
 		res = append(res, WithConnMaxLifetime(*ac.ConnMaxLifetime))
+	}
+
+	if ac.ConnMaxIdleTime != nil {
+		res = append(res, WithConnMaxIdleTime(*ac.ConnMaxIdleTime))
 	}
 
 	return res
@@ -101,6 +110,13 @@ func WithMaxOpenConns(v int) DBOption {
 	}
 }
 
+func WithConnMaxIdleTime(v time.Duration) DBOption {
+	return func(i *dbInput) {
+		v := v
+		i.maxIdleTime = &v
+	}
+}
+
 func WithConnMaxLifetime(v time.Duration) DBOption {
 	return func(i *dbInput) {
 		v := v
@@ -117,6 +133,7 @@ type dbInput struct {
 	maxIdleConns *int
 	maxOpenConns *int
 	maxLifetime  *time.Duration
+	maxIdleTime  *time.Duration
 
 	dbCallbacks []func(*stdsql.DB)
 }
@@ -132,6 +149,10 @@ func (i *dbInput) prepareDB(db *stdsql.DB) {
 
 	if i.maxLifetime != nil {
 		db.SetConnMaxLifetime(*i.maxLifetime)
+	}
+
+	if i.maxIdleTime != nil {
+		db.SetConnMaxIdleTime(*i.maxIdleTime)
 	}
 }
 
