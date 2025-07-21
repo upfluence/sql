@@ -122,11 +122,13 @@ func (c *Config) caCerts() []*x509.Certificate {
 func (c *Config) sslValues() (url.Values, error) {
 	mode := Disable
 
-	if c.CACertFile == "" && c.CACert != nil {
-		c.certOnce.Do(func() { c.CACertFile, c.certErr = writeBundle(c.caCerts()) })
+	if c.CACertFile == "" {
+		if certs := c.caCerts(); len(certs) > 0 {
+			c.certOnce.Do(func() { c.CACertFile, c.certErr = writeBundle(certs) })
 
-		if c.certErr != nil {
-			return nil, c.certErr
+			if c.certErr != nil {
+				return nil, c.certErr
+			}
 		}
 	}
 
