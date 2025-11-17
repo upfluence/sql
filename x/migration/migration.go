@@ -1,3 +1,7 @@
+// Package migration provides database schema versioning and application.
+//
+// Migration files are organized by version number with .up and .down suffixes.
+// For example: 001_create_users.up.sql and 001_create_users.down.sql.
 package migration
 
 import (
@@ -10,11 +14,13 @@ import (
 	"github.com/upfluence/sql"
 )
 
+// Migrator applies and rolls back schema migrations.
 type Migrator interface {
 	Up(context.Context) error
 	Down(context.Context) error
 }
 
+// MultiMigrator applies migrations from multiple Migrator sources.
 type MultiMigrator []Migrator
 
 func (ms MultiMigrator) Up(ctx context.Context) error {
@@ -51,6 +57,8 @@ type migrator struct {
 	opts *options
 }
 
+// NewMigrator creates a Migrator that applies migrations from s to db.
+// The database driver is automatically detected from db.Driver().
 func NewMigrator(db sql.DB, s Source, opts ...Option) Migrator {
 	o := *defaultOptions
 

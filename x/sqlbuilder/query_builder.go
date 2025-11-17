@@ -1,3 +1,7 @@
+// Package sqlbuilder provides type-safe SQL query construction.
+//
+// The package supports SELECT, INSERT, UPDATE, and DELETE statements using a
+// fluent builder pattern with compile-time query construction and parameterization.
 package sqlbuilder
 
 import (
@@ -9,6 +13,8 @@ import (
 	"github.com/upfluence/sql"
 )
 
+// QueryBuilder is a convenience wrapper around sql.Queryer that combines
+// query execution with statement building.
 type QueryBuilder struct {
 	sql.Queryer
 }

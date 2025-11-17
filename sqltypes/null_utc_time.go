@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// NullUTCTime is a nullable timestamp stored and retrieved in UTC.
 type NullUTCTime struct {
 	Time  time.Time
 	Valid bool

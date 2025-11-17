@@ -13,6 +13,7 @@ import (
 
 var errInvalidType = errors.New("unsupported type to assign to a StringSlice")
 
+// StringSlice is a nullable slice of strings, encoded as CSV.
 type StringSlice struct {
 	Strings []string
 	Valid   bool

@@ -1,3 +1,4 @@
+// Package sqltypes provides SQL value types with better null handling.
 package sqltypes
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/upfluence/errors"
 )
 
+// JSONValue is a nullable JSON value.
 type JSONValue struct {
 	Data  interface{}
 	Valid bool

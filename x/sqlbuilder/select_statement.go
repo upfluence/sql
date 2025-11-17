@@ -6,25 +6,24 @@ import (
 	"github.com/upfluence/sql"
 )
 
+// NullableInt represents an optional integer value.
 type NullableInt struct {
 	Int   int
 	Valid bool
 }
 
+// SelectStatement represents a SELECT query.
 type SelectStatement struct {
-	Table string
-
+	Table          string
 	JoinClauses    []JoinClause
 	OrderByClauses []OrderByClause
 	SelectClauses  []Marker
 	WhereClause    PredicateClause
 	GroupByClause  []Marker
 	HavingClause   PredicateClause
-
-	Offset NullableInt
-	Limit  NullableInt
-
-	Consistency sql.Consistency
+	Offset         NullableInt
+	Limit          NullableInt
+	Consistency    sql.Consistency
 }
 
 func (ss SelectStatement) Clone() SelectStatement {

@@ -1,3 +1,4 @@
+// Package logger provides query logging middleware.
 package logger
 
 import (
@@ -11,6 +12,7 @@ import (
 	"github.com/upfluence/sql"
 )
 
+// OpType is a database operation type.
 type OpType string
 
 const (
@@ -21,6 +23,7 @@ const (
 	Rollback OpType = "Rollback"
 )
 
+// Logger logs database operations.
 type Logger interface {
 	Log(OpType, string, []interface{}, time.Duration)
 }
@@ -57,14 +60,17 @@ func (l *simplifiedLogger) Log(_ OpType, q string, vs []interface{}, d time.Dura
 	l.logger.WithFields(fs...).Log(l.level, q)
 }
 
+// NewFactory creates middleware from a custom Logger.
 func NewFactory(l Logger) sql.MiddlewareFactory {
 	return &factory{l: l}
 }
 
+// NewLevelFactory creates middleware that logs at the given level.
 func NewLevelFactory(l log.Logger, lvl record.Level) sql.MiddlewareFactory {
 	return NewFactory(&simplifiedLogger{logger: l, level: lvl})
 }
 
+// NewDebugFactory creates middleware that logs all queries at debug level.
 func NewDebugFactory(l log.Logger) sql.MiddlewareFactory {
 	return NewLevelFactory(l, record.Debug)
 }

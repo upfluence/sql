@@ -1,3 +1,7 @@
+// Package sqlutil provides database initialization and configuration.
+//
+// The Open function opens a database connection with optional configuration
+// for master-slave replication, load balancing, and connection pooling.
 package sqlutil
 
 import (
@@ -25,12 +29,15 @@ var (
 		},
 	}
 
+	// ErrNoDBProvided is returned when Open is called without any database connections.
 	ErrNoDBProvided = errors.New("No DB provided")
 
 	driverWrappersMu = &sync.Mutex{}
 	driverWrappers   = map[string]DriverWrapperFunc{"postgres": postgres.NewDB}
 )
 
+// AdhocDBConfig holds connection pooling configuration that can be loaded
+// from environment variables.
 type AdhocDBConfig struct {
 	MaxIdleConns    *int           `env:"MAX_IDLE_CONNS"`
 	MaxOpenConns    *int           `env:"MAX_OPEN_CONNS"`
@@ -38,6 +45,7 @@ type AdhocDBConfig struct {
 	ConnMaxIdleTime *time.Duration `env:"CONN_MAX_IDLE_TIME"`
 }
 
+// Options returns the equivalent DBOptions for this config.
 func (ac *AdhocDBConfig) Options() []DBOption {
 	var res []DBOption
 
@@ -60,11 +68,14 @@ func (ac *AdhocDBConfig) Options() []DBOption {
 	return res
 }
 
+// AdhocConfig holds high-level database configuration that can be loaded
+// from environment variables.
 type AdhocConfig struct {
 	UseMasterForReads bool          `env:"USE_MASTER_FOR_READS"`
 	GlobalConfig      AdhocDBConfig `env:"GLOBAL"`
 }
 
+// Options returns the equivalent Options for this config.
 func (ac *AdhocConfig) Options() []Option {
 	var res []Option
 
@@ -79,23 +90,31 @@ func (ac *AdhocConfig) Options() []Option {
 	return res
 }
 
+// RegisterDriverWrapper registers a custom wrapper for a database driver.
+//
+//	sqlutil.RegisterDriverWrapper("mydb", func(db sql.DB, parser sqlparser.SQLParser) sql.DB {
+//		return &customWrapper{underlying: db}
+//	})
 func RegisterDriverWrapper(d string, fn DriverWrapperFunc) {
 	driverWrappersMu.Lock()
 	defer driverWrappersMu.Unlock()
-
 	driverWrappers[d] = fn
 }
 
+// DriverWrapperFunc wraps a database with custom logic.
 type DriverWrapperFunc func(sql.DB, sqlparser.SQLParser) sql.DB
 
+// DBOption configures a database connection.
 type DBOption func(*dbInput)
 
+// WithStdDBCallback registers a callback to configure the underlying database/sql.DB.
 func WithStdDBCallback(fn func(*stdsql.DB)) DBOption {
 	return func(i *dbInput) {
 		i.dbCallbacks = append(i.dbCallbacks, fn)
 	}
 }
 
+// WithMaxIdleConns sets the maximum idle connections (default: 16).
 func WithMaxIdleConns(v int) DBOption {
 	return func(i *dbInput) {
 		v := v
@@ -103,6 +122,7 @@ func WithMaxIdleConns(v int) DBOption {
 	}
 }
 
+// WithMaxOpenConns sets the maximum open connections (default: 128).
 func WithMaxOpenConns(v int) DBOption {
 	return func(i *dbInput) {
 		v := v
@@ -110,6 +130,7 @@ func WithMaxOpenConns(v int) DBOption {
 	}
 }
 
+// WithConnMaxIdleTime sets the maximum idle duration before closing a connection (default: 2m).
 func WithConnMaxIdleTime(v time.Duration) DBOption {
 	return func(i *dbInput) {
 		v := v
@@ -117,6 +138,7 @@ func WithConnMaxIdleTime(v time.Duration) DBOption {
 	}
 }
 
+// WithConnMaxLifetime sets the maximum lifetime of a connection before recycling it.
 func WithConnMaxLifetime(v time.Duration) DBOption {
 	return func(i *dbInput) {
 		v := v
@@ -241,36 +263,93 @@ type builder struct {
 	parser sqlparser.SQLParser
 }
 
+// Option configures database initialization.
 type Option func(*builder)
 
-func UseMasterForReads(b *builder) { b.useMasterForReads = true }
+// UseMasterForReads forces all queries to use the master database,
+// even in master-slave replication setups.
+var UseMasterForReads Option = func(b *builder) { b.useMasterForReads = true }
 
+// WithDatabase adds a database to the pool with explicit master/slave designation.
+// Most callers should use WithMaster or WithSlave instead.
 func WithDatabase(driver, dsn string, readOnly bool, opts ...DBOption) Option {
 	i := dbInput{driver: driver, uri: dsn, isMaster: !readOnly}
-
 	for _, opt := range opts {
 		opt(&i)
 	}
-
 	return func(b *builder) { b.dbs = append(b.dbs, &i) }
 }
 
+// WithGlobalDBOptions applies options to all databases in the pool.
 func WithGlobalDBOptions(opts ...DBOption) Option {
 	return func(b *builder) { b.options = append(b.options, opts...) }
 }
 
+// WithMaster adds a master database to the pool.
+// In master-slave setups, write operations are routed to the master.
+//
+//	db, err := sqlutil.Open(
+//		sqlutil.WithMaster("postgres", "postgres://primary/db"),
+//	)
 func WithMaster(driver, dsn string, opts ...DBOption) Option {
 	return WithDatabase(driver, dsn, false, opts...)
 }
 
+// WithSlave adds a slave/replica database to the pool.
+// In master-slave setups, read operations may be routed to replicas.
+//
+//	db, err := sqlutil.Open(
+//		sqlutil.WithMaster("postgres", "postgres://primary/db"),
+//		sqlutil.WithSlave("postgres", "postgres://replica1/db"),
+//		sqlutil.WithSlave("postgres", "postgres://replica2/db"),
+//	)
 func WithSlave(driver, dsn string, opts ...DBOption) Option {
 	return WithDatabase(driver, dsn, true, opts...)
 }
 
+// WithBalancer adds databases to a round-robin load balancer pool.
+//
+//	db, err := sqlutil.Open(
+//		sqlutil.WithBalancer(
+//			"postgres://db1/mydb",
+//			"postgres://db2/mydb",
+//			"postgres://db3/mydb",
+//		),
+//	)
+func WithBalancer(dsns ...string) Option {
+	return func(b *builder) {
+		for _, dsn := range dsns {
+			b.dbs = append(b.dbs, &dbInput{driver: "postgres", uri: dsn, isMaster: true})
+		}
+		b.useBalancer = true
+	}
+}
+
+// WithMiddleware adds middleware to the database connection.
+//
+//	import "github.com/upfluence/sql/middleware/logger"
+//
+//	db, err := sqlutil.Open(
+//		sqlutil.WithMaster("postgres", "postgres://localhost/db"),
+//		sqlutil.WithMiddleware(logger.NewDebugFactory(log)),
+//	)
 func WithMiddleware(f sql.MiddlewareFactory) Option {
 	return func(b *builder) { b.middlewares = append(b.middlewares, f) }
 }
 
+// Open initializes a database connection with the given options.
+// If no databases are provided, it returns ErrNoDBProvided.
+//
+//	ctx := context.Background()
+//	db, err := sqlutil.Open(
+//		sqlutil.WithMaster("postgres", "postgres://localhost/mydb"),
+//		sqlutil.WithMaxOpenConns(100),
+//		sqlutil.WithConnMaxIdleTime(5*time.Minute),
+//	)
+//	if err != nil {
+//		return err
+//	}
+//	defer db.Close()
 func Open(os ...Option) (sql.DB, error) {
 	var opts = *defaultOptions
 
