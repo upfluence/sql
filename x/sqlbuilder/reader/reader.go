@@ -80,7 +80,7 @@ func (r reader) WithJoinClauses(jcs ...sqlbuilder.JoinClause) Reader {
 	return reader{pr: &withJoinClausesReader{parentReader: r.pr, jcs: jcs}}
 }
 
-func (r reader) readQueryer(opts ReadOptions) sqlbuilder.Queryer {
+func (r reader) SelectQueryer(opts ReadOptions) *sqlbuilder.SelectQueryer {
 	stmt := sqlbuilder.SelectStatement{
 		Table:         r.pr.table(),
 		SelectClauses: opts.SelectClauses,
@@ -104,11 +104,11 @@ func (r reader) readQueryer(opts ReadOptions) sqlbuilder.Queryer {
 }
 
 func (r reader) ReadOne(ctx context.Context, opts ReadOptions) sqlbuilder.Scanner {
-	return r.readQueryer(opts).QueryRow(ctx, nil)
+	return r.SelectQueryer(opts).QueryRow(ctx, nil)
 }
 
 func (r reader) Read(ctx context.Context, opts ReadOptions) (sqlbuilder.Cursor, error) {
-	return r.readQueryer(opts).Query(ctx, nil)
+	return r.SelectQueryer(opts).Query(ctx, nil)
 }
 
 type parentReader interface {
