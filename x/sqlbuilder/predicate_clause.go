@@ -280,6 +280,7 @@ func In(m Marker) PredicateClause {
 type Exists struct {
 	Table       string
 	WhereClause PredicateClause
+	JoinClauses []JoinClause
 }
 
 func (e *Exists) Clone() PredicateClause {
@@ -289,10 +290,19 @@ func (e *Exists) Clone() PredicateClause {
 func (e *Exists) WriteTo(w QueryWriter, vs map[string]interface{}) error {
 	io.WriteString(w, "EXISTS(SELECT 1 FROM ")
 	io.WriteString(w, e.Table)
-	io.WriteString(w, " WHERE ")
-	if err := e.WhereClause.WriteTo(w, vs); err != nil {
-		return err
+
+	for _, jc := range e.JoinClauses {
+		jc.WriteTo(w, vs)
 	}
+
+	if e.WhereClause != nil {
+		io.WriteString(w, " WHERE ")
+
+		if err := e.WhereClause.WriteTo(w, vs); err != nil {
+			return err
+		}
+	}
+
 	io.WriteString(w, ")")
 
 	return nil

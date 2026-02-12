@@ -38,7 +38,7 @@ func writeUpdateClause(f Marker, qw QueryWriter, vs map[string]interface{}) erro
 
 func writeUpdateClauses(fs []Marker, qw QueryWriter, vs map[string]interface{}) error {
 	for i, f := range fs {
-		fmt.Fprintf(qw, "%s = ", columnName(f))
+		fmt.Fprintf(qw, "%s = ", ColumnName(f))
 
 		if err := writeUpdateClause(f, qw, vs); err != nil {
 			return err

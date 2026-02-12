@@ -67,7 +67,7 @@ func cloneMarkers(ms []Marker) []Marker {
 	return res
 }
 
-func columnName(m Marker) string {
+func ColumnName(m Marker) string {
 	if cn, ok := m.(interface{ ColumnName() string }); ok {
 		return cn.ColumnName()
 	}

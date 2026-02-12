@@ -35,7 +35,7 @@ func (oct *OnConflictTarget) WriteTo(qw QueryWriter, vs map[string]interface{}) 
 	io.WriteString(qw, "(")
 
 	for i, f := range oct.Fields {
-		io.WriteString(qw, columnName(f))
+		io.WriteString(qw, ColumnName(f))
 
 		if i < len(oct.Fields)-1 {
 			io.WriteString(qw, ", ")
@@ -161,7 +161,7 @@ func (is InsertStatement) buildQueries(vvs []map[string]interface{}, qvs map[str
 	fmt.Fprintf(&qw, "INSERT INTO %s(", is.Table)
 
 	for i, f := range is.Fields {
-		qw.WriteString(columnName(f))
+		qw.WriteString(ColumnName(f))
 
 		if i < len(is.Fields)-1 {
 			qw.WriteString(", ")
