@@ -2,6 +2,8 @@
 
 package sqlbuilder
 
-func writeInClause(w QueryWriter, vv interface{}, k string) error {
-	return writeInClauseBasic(w, vv, k)
+import "reflect"
+
+func reflectSlice(vv interface{}) (reflect.Value, error) {
+	return reflectSliceBasic(vv)
 }

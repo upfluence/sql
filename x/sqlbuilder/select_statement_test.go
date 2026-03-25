@@ -314,6 +314,71 @@ func TestSelectQuery(t *testing.T) {
 			err: errNoMarkers,
 		},
 		{
+			name: "multi column in",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   MultiColumnIn("ab", Column("a"), Column("b")),
+			},
+			vs: map[string]interface{}{
+				"ab": []map[string]interface{}{
+					{"a": 1, "b": 2},
+					{"a": 3, "b": 4},
+				},
+			},
+			stmt: "SELECT bar FROM foo WHERE (a, b) IN (($1, $2), ($3, $4))",
+			args: []interface{}{1, 2, 3, 4},
+		},
+		{
+			name: "multi column in empty",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   MultiColumnIn("ab", Column("a"), Column("b")),
+			},
+			vs: map[string]interface{}{
+				"ab": []map[string]interface{}{},
+			},
+			stmt: "SELECT bar FROM foo WHERE 1=0",
+		},
+		{
+			name: "multi column in no markers",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   MultiColumnIn("ab"),
+			},
+			stmt: "SELECT bar FROM foo WHERE 1=0",
+		},
+		{
+			name: "static multi column in",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticMultiColumnIn([]Marker{Column("a"), Column("b")}, []map[string]interface{}{{"a": 1, "b": 2}, {"a": 3, "b": 4}}),
+			},
+			stmt: "SELECT bar FROM foo WHERE (a, b) IN (($1, $2), ($3, $4))",
+			args: []interface{}{1, 2, 3, 4},
+		},
+		{
+			name: "static multi column in empty",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticMultiColumnIn([]Marker{Column("a"), Column("b")}, []map[string]interface{}{}),
+			},
+			stmt: "SELECT bar FROM foo WHERE 1=0",
+		},
+		{
+			name: "static multi column in no markers",
+			ss: SelectStatement{
+				Table:         "foo",
+				SelectClauses: []Marker{Column("bar")},
+				WhereClause:   StaticMultiColumnIn([]Marker{}, []map[string]interface{}{{"a": 1}}),
+			},
+			stmt: "SELECT bar FROM foo WHERE 1=0",
+		},
+		{
 			name: "function",
 			ss: SelectStatement{
 				Table:         "foo",

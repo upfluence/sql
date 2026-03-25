@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strings"
 
 	"github.com/upfluence/errors"
 )
@@ -277,6 +278,112 @@ func In(m Marker) PredicateClause {
 	return &basicClause{m: m, fn: writeInClause}
 }
 
+func MultiColumnIn(k string, ms ...Marker) PredicateClause {
+	return &multiColumnInClause{k: k, ms: ms}
+}
+
+func StaticMultiColumnIn(ms []Marker, vs []map[string]interface{}) PredicateClause {
+	return Static(MultiColumnIn("static", ms...), map[string]interface{}{"static": vs})
+}
+
+type multiColumnInClause struct {
+	k  string
+	ms []Marker
+}
+
+func (mc *multiColumnInClause) Clone() PredicateClause {
+	return &multiColumnInClause{k: mc.k, ms: cloneMarkers(mc.ms)}
+}
+
+func (mc *multiColumnInClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
+	if _, ok := vs[mc.k]; !ok || len(mc.ms) == 0 {
+		io.WriteString(w, "1=0")
+		return nil
+	}
+
+	var keys, bindings []string
+
+	for _, m := range mc.ms {
+		keys = append(keys, m.ToSQL())
+		bindings = append(bindings, m.Binding())
+	}
+
+	return writeInValues(
+		w,
+		vs[mc.k],
+		fmt.Sprintf("(%s)", strings.Join(keys, ", ")),
+		func(w QueryWriter, elem interface{}) error {
+			row := reflect.ValueOf(elem)
+
+			if row.Kind() != reflect.Map || row.Type().Key().Kind() != reflect.String {
+				return errors.Newf("%T: %+v: invalid value for multi-column IN predicate: expected slice of maps", vs[mc.k], vs[mc.k])
+			}
+
+			fmt.Fprint(w, "(")
+
+			for j, b := range bindings {
+				vv := row.MapIndex(reflect.ValueOf(b))
+
+				if !vv.IsValid() {
+					return ErrMissingKey{b}
+				}
+
+				io.WriteString(w, w.RedeemVariable(vv.Interface()))
+
+				if j < len(bindings)-1 {
+					io.WriteString(w, ", ")
+				}
+			}
+
+			fmt.Fprint(w, ")")
+			return nil
+		},
+	)
+}
+
+func writeInValues(w QueryWriter, vv interface{}, k string, fn func(QueryWriter, interface{}) error) error {
+	v, err := reflectSlice(vv)
+
+	if err != nil {
+		return err
+	}
+
+	if v.Len() == 0 {
+		io.WriteString(w, "1=0")
+		return nil
+	}
+
+	fmt.Fprintf(w, "%s IN (", k)
+
+	for i := 0; i < v.Len(); i++ {
+		if err := fn(w, v.Index(i).Interface()); err != nil {
+			return err
+		}
+
+		if i < v.Len()-1 {
+			io.WriteString(w, ", ")
+		}
+	}
+
+	io.WriteString(w, ")")
+	return nil
+}
+
+func writeInClause(w QueryWriter, vv interface{}, k string) error {
+	return writeInValues(w, vv, k, func(w QueryWriter, elem interface{}) error {
+		io.WriteString(w, w.RedeemVariable(elem))
+		return nil
+	})
+}
+
+func clonePredicateClause(pc PredicateClause) PredicateClause {
+	if pc == nil {
+		return nil
+	}
+
+	return pc.Clone()
+}
+
 type Exists struct {
 	Table       string
 	WhereClause PredicateClause
@@ -328,36 +435,12 @@ func (bc *basicClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
 	return bc.fn(w, vv, bc.m.ToSQL())
 }
 
-func writeInClauseBasic(w QueryWriter, vv interface{}, k string) error {
-	v := reflect.ValueOf(vv)
+func reflectSliceBasic(v interface{}) (reflect.Value, error) {
+	rv := reflect.ValueOf(v)
 
-	if k := v.Kind(); k != reflect.Slice && k != reflect.Array {
-		return errInvalidType
+	if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
+		return reflect.Value{}, errInvalidType
 	}
 
-	if v.Len() == 0 {
-		io.WriteString(w, "1=0")
-		return nil
-	}
-
-	fmt.Fprintf(w, "%s IN (", k)
-
-	for i := 0; i < v.Len(); i++ {
-		io.WriteString(w, w.RedeemVariable(v.Index(i).Interface()))
-
-		if i < v.Len()-1 {
-			io.WriteString(w, ", ")
-		}
-	}
-
-	io.WriteString(w, ")")
-	return nil
-}
-
-func clonePredicateClause(pc PredicateClause) PredicateClause {
-	if pc == nil {
-		return nil
-	}
-
-	return pc.Clone()
+	return rv, nil
 }
