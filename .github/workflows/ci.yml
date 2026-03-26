@@ -8,45 +8,9 @@ on:
 
 jobs:
   test:
-    name: Run Tests
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        go: [ '1.24.x', '1.23.x' ]
-    services:
-      postgres:
-        image: postgres
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: tata_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
-      - name: Install Go ${{ matrix.go }}
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ matrix.go }}
-          cache: false
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Cache Modules
-        uses: actions/cache@v4
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-v1-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: Run tests
-        run: go test -p 1 -v ./...
-        env:
-          POSTGRES_URL: postgres://postgres:postgres@localhost:5432/tata_test?sslmode=disable
+    uses: upfluence/actions/.github/workflows/lib-go-test.yml@master
+    with:
+      with-postgres: true
 
   release:
     needs: test
