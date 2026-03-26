@@ -4,7 +4,7 @@ package sqlbuilder
 
 import "reflect"
 
-func writeInClause(w QueryWriter, vv interface{}, k string) error {
+func reflectSlice(vv interface{}) (reflect.Value, error) {
 	v := reflect.ValueOf(vv)
 	t := v.Type()
 
@@ -15,8 +15,8 @@ func writeInClause(w QueryWriter, vv interface{}, k string) error {
 			vs = append(vs, v.Interface())
 		}
 
-		return writeInClauseBasic(w, vs, k)
+		return reflect.ValueOf(vs), nil
 	}
 
-	return writeInClauseBasic(w, vv, k)
+	return reflectSliceBasic(vv)
 }
