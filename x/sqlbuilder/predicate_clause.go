@@ -435,12 +435,23 @@ func (bc *basicClause) WriteTo(w QueryWriter, vs map[string]any) error {
 	return bc.fn(w, vv, bc.m.ToSQL())
 }
 
-func reflectSliceBasic(v any) (reflect.Value, error) {
-	rv := reflect.ValueOf(v)
+func reflectSlice(vv any) (reflect.Value, error) {
+	v := reflect.ValueOf(vv)
+	t := v.Type()
 
-	if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
+	if t.Kind() != reflect.Slice && t.Kind() != reflect.Array {
+		if t.CanSeq() {
+			var vs []any
+
+			for v := range v.Seq() {
+				vs = append(vs, v.Interface())
+			}
+
+			return reflect.ValueOf(vs), nil
+		}
+
 		return reflect.Value{}, errInvalidType
 	}
 
-	return rv, nil
+	return v, nil
 }
