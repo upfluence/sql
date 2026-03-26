@@ -22,19 +22,19 @@ type emptyScanner struct {
 type logEvent struct {
 	op   OpType
 	qs   string
-	args []interface{}
+	args []any
 }
 
 type mockLogger struct {
 	event logEvent
 }
 
-func (ml *mockLogger) Log(op OpType, qs string, args []interface{}, _ time.Duration) {
+func (ml *mockLogger) Log(op OpType, qs string, args []any, _ time.Duration) {
 	ml.event = logEvent{op: op, qs: qs, args: args}
 }
 
 func TestQueryer(t *testing.T) {
-	var args = []interface{}{"bar", sql.StronglyConsistent}
+	var args = []any{"bar", sql.StronglyConsistent}
 
 	for _, tt := range []struct {
 		op   OpType
@@ -92,7 +92,7 @@ func TestQueryer(t *testing.T) {
 
 			assert.Equal(
 				t,
-				logEvent{op: tt.op, qs: "foo", args: []interface{}{"bar"}},
+				logEvent{op: tt.op, qs: "foo", args: []any{"bar"}},
 				ml.event,
 			)
 			assert.Equal(t, []static.Query{{Query: "foo", Args: args}}, tt.arg(*db))

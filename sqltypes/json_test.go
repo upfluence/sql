@@ -18,7 +18,7 @@ func TestScan(t *testing.T) {
 	for _, tt := range []struct {
 		name string
 
-		value   interface{}
+		value   any
 		want    JSONValue
 		wantErr errtest.ErrorAssertion
 	}{
@@ -65,8 +65,8 @@ func TestShadowScan(t *testing.T) {
 		name string
 
 		scanner sql.Scanner
-		value   interface{}
-		want    interface{}
+		value   any
+		want    any
 	}{
 		{
 			name: "override object",
@@ -92,10 +92,10 @@ func TestShadowScan(t *testing.T) {
 		{
 			name: "override map with nil becomes invalid",
 			scanner: &JSONValue{
-				Data: map[string]interface{}{"foo": 1},
+				Data: map[string]any{"foo": 1},
 			},
 			want: &JSONValue{
-				Data:  map[string]interface{}{"foo": 1},
+				Data:  map[string]any{"foo": 1},
 				Valid: false,
 			},
 		},
@@ -113,7 +113,7 @@ func TestValue(t *testing.T) {
 		name string
 
 		value   driver.Valuer
-		want    interface{}
+		want    any
 		wantErr error
 	}{
 		{

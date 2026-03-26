@@ -12,12 +12,12 @@ import (
 func testQueryer(t *testing.T, qfn func(sql.DB) sql.Queryer) {
 	updateQ := static.Query{
 		Query: "UPDATE foo SET bar = $1 WHERE buz= $2",
-		Args:  []interface{}{1, 2},
+		Args:  []any{1, 2},
 	}
 
 	insertQ := static.Query{
 		Query: "INSERT INTO foo(bar, buz) VALUES ($1, $2)",
-		Args:  []interface{}{1, 2},
+		Args:  []any{1, 2},
 	}
 
 	for _, tt := range []struct {
@@ -41,11 +41,11 @@ func testQueryer(t *testing.T, qfn func(sql.DB) sql.Queryer) {
 			name: "insert with returning",
 			in: static.Query{
 				Query: "INSERT INTO foo(bar, buz) VALUES ($1, $2)",
-				Args:  []interface{}{1, 2, &sql.Returning{Field: "baz"}},
+				Args:  []any{1, 2, &sql.Returning{Field: "baz"}},
 			},
 			out: static.Query{
 				Query: "INSERT INTO foo(bar, buz) VALUES ($1, $2) RETURNING baz",
-				Args:  []interface{}{1, 2},
+				Args:  []any{1, 2},
 			},
 			id: 2,
 		},

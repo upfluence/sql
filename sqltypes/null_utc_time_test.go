@@ -17,7 +17,7 @@ func TestNullUTCTime_Scan(t *testing.T) {
 
 	for _, tt := range []struct {
 		name    string
-		value   interface{}
+		value   any
 		want    time.Time
 		wantErr errtest.ErrorAssertion
 	}{

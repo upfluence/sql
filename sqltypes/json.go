@@ -8,11 +8,11 @@ import (
 )
 
 type JSONValue struct {
-	Data  interface{}
+	Data  any
 	Valid bool
 }
 
-func (jv *JSONValue) Scan(v interface{}) error {
+func (jv *JSONValue) Scan(v any) error {
 	var err error
 
 	jv.Valid = false

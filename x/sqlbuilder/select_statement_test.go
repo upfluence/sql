@@ -32,8 +32,8 @@ func TestSelectStatement(t *testing.T) {
 			SelectClauses: []Marker{Column("foo")},
 			WhereClause:   In(Column("bar")),
 		},
-	).QueryRow(ctx, map[string]interface{}{"bar": []int{1, 2, 3, 4}}).Scan(
-		map[string]interface{}{"foo": &res},
+	).QueryRow(ctx, map[string]any{"bar": []int{1, 2, 3, 4}}).Scan(
+		map[string]any{"foo": &res},
 	)
 
 	assert.Nil(t, err)
@@ -43,7 +43,7 @@ func TestSelectStatement(t *testing.T) {
 
 	q := db.QueryRowQueries[0]
 	assert.Equal(t, "SELECT foo FROM foo WHERE bar IN ($1, $2, $3, $4)", q.Query)
-	assert.Equal(t, []interface{}{1, 2, 3, 4}, q.Args)
+	assert.Equal(t, []any{1, 2, 3, 4}, q.Args)
 }
 
 func TestSelectQuery(t *testing.T) {
@@ -51,10 +51,10 @@ func TestSelectQuery(t *testing.T) {
 		name string
 
 		ss SelectStatement
-		vs map[string]interface{}
+		vs map[string]any
 
 		stmt string
-		args []interface{}
+		args []any
 		err  error
 	}{
 		{
@@ -102,9 +102,9 @@ func TestSelectQuery(t *testing.T) {
 				SelectClauses: []Marker{Column("bar")},
 				WhereClause:   And(Lte(Column("foo")), Eq(Column("biz"))),
 			},
-			vs:   map[string]interface{}{"foo": 1, "biz": 2},
+			vs:   map[string]any{"foo": 1, "biz": 2},
 			stmt: "SELECT bar FROM foo WHERE (foo <= $1) AND (biz = $2)",
-			args: []interface{}{1, 2},
+			args: []any{1, 2},
 		},
 		{
 			name: "empty and",
@@ -113,7 +113,7 @@ func TestSelectQuery(t *testing.T) {
 				SelectClauses: []Marker{Column("bar")},
 				WhereClause:   And(),
 			},
-			vs:   map[string]interface{}{"foo": 1, "biz": 2},
+			vs:   map[string]any{"foo": 1, "biz": 2},
 			stmt: "SELECT bar FROM foo",
 		},
 		{
@@ -123,7 +123,7 @@ func TestSelectQuery(t *testing.T) {
 				SelectClauses: []Marker{Column("bar")},
 				WhereClause:   And(nil, nil, PlainSQLPredicate("foo IS NULL")),
 			},
-			vs:   map[string]interface{}{"foo": 1, "biz": 2},
+			vs:   map[string]any{"foo": 1, "biz": 2},
 			stmt: "SELECT bar FROM foo WHERE foo IS NULL",
 		},
 		{
@@ -136,9 +136,9 @@ func TestSelectQuery(t *testing.T) {
 					Eq(Column("biz")),
 				),
 			},
-			vs:   map[string]interface{}{"foo": 1, "biz": 2},
+			vs:   map[string]any{"foo": 1, "biz": 2},
 			stmt: "SELECT bar FROM foo WHERE (foo = $1) AND (foo IS NULL) AND (biz = $2)",
-			args: []interface{}{1, 2},
+			args: []any{1, 2},
 		},
 		{
 			name: "empty in",
@@ -147,7 +147,7 @@ func TestSelectQuery(t *testing.T) {
 				SelectClauses: []Marker{Column("bar")},
 				WhereClause:   In(Column("bar")),
 			},
-			vs:   map[string]interface{}{"bar": []int64{}},
+			vs:   map[string]any{"bar": []int64{}},
 			stmt: "SELECT bar FROM foo WHERE 1=0",
 		},
 		{
@@ -158,7 +158,7 @@ func TestSelectQuery(t *testing.T) {
 				WhereClause:   StaticIn(Column("bar"), []int{1, 2, 3}),
 			},
 			stmt: "SELECT bar FROM foo WHERE bar IN ($1, $2, $3)",
-			args: []interface{}{1, 2, 3},
+			args: []any{1, 2, 3},
 		},
 		{
 			name: "limit & offset",
@@ -178,7 +178,7 @@ func TestSelectQuery(t *testing.T) {
 				WhereClause:   StaticEq(Column("bar"), "buz"),
 			},
 			stmt: "SELECT bar FROM foo WHERE bar = $1",
-			args: []interface{}{"buz"},
+			args: []any{"buz"},
 		},
 		{
 			name: "static not eq",
@@ -188,7 +188,7 @@ func TestSelectQuery(t *testing.T) {
 				WhereClause:   StaticNe(Column("bar"), "buz"),
 			},
 			stmt: "SELECT bar FROM foo WHERE bar != $1",
-			args: []interface{}{"buz"},
+			args: []any{"buz"},
 		},
 		{
 			name: "static greater than",
@@ -198,7 +198,7 @@ func TestSelectQuery(t *testing.T) {
 				WhereClause:   StaticGt(Column("bar"), "buz"),
 			},
 			stmt: "SELECT bar FROM foo WHERE bar > $1",
-			args: []interface{}{"buz"},
+			args: []any{"buz"},
 		},
 		{
 			name: "static greater or equal",
@@ -208,7 +208,7 @@ func TestSelectQuery(t *testing.T) {
 				WhereClause:   StaticGte(Column("bar"), "buz"),
 			},
 			stmt: "SELECT bar FROM foo WHERE bar >= $1",
-			args: []interface{}{"buz"},
+			args: []any{"buz"},
 		},
 		{
 			name: "static lower than",
@@ -218,7 +218,7 @@ func TestSelectQuery(t *testing.T) {
 				WhereClause:   StaticLt(Column("bar"), "buz"),
 			},
 			stmt: "SELECT bar FROM foo WHERE bar < $1",
-			args: []interface{}{"buz"},
+			args: []any{"buz"},
 		},
 		{
 			name: "static lower or equal",
@@ -228,7 +228,7 @@ func TestSelectQuery(t *testing.T) {
 				WhereClause:   StaticLte(Column("bar"), "buz"),
 			},
 			stmt: "SELECT bar FROM foo WHERE bar <= $1",
-			args: []interface{}{"buz"},
+			args: []any{"buz"},
 		},
 		{
 			name: "static like",
@@ -238,7 +238,7 @@ func TestSelectQuery(t *testing.T) {
 				WhereClause:   StaticLike(Column("bar"), "buz"),
 			},
 			stmt: "SELECT bar FROM foo WHERE bar LIKE $1",
-			args: []interface{}{"buz"},
+			args: []any{"buz"},
 		},
 		{
 			name: "is not null",
@@ -276,7 +276,7 @@ func TestSelectQuery(t *testing.T) {
 				OrderByClauses: []OrderByClause{OrderByClause{Field: Column("bar")}},
 			},
 			stmt: "SELECT bar FROM foo WHERE bar = $1 ORDER BY bar",
-			args: []interface{}{"buz"},
+			args: []any{"buz"},
 		},
 		{
 			name: "order by multi",
@@ -290,7 +290,7 @@ func TestSelectQuery(t *testing.T) {
 				},
 			},
 			stmt: "SELECT bar FROM foo WHERE bar = $1 ORDER BY bar, buz DESC",
-			args: []interface{}{"buz"},
+			args: []any{"buz"},
 		},
 		{
 			name: "consistency",
@@ -301,8 +301,8 @@ func TestSelectQuery(t *testing.T) {
 				Consistency:   sql.StronglyConsistent,
 			},
 			stmt: "SELECT bar FROM foo WHERE bar = $1",
-			vs:   map[string]interface{}{"bar": []int64{}},
-			args: []interface{}{"buz", sql.StronglyConsistent},
+			vs:   map[string]any{"bar": []int64{}},
+			args: []any{"buz", sql.StronglyConsistent},
 		},
 		{
 			name: "error no marker",
@@ -310,7 +310,7 @@ func TestSelectQuery(t *testing.T) {
 				Table:       "foo",
 				WhereClause: In(Column("bar")),
 			},
-			vs:  map[string]interface{}{"bar": []int64{}},
+			vs:  map[string]any{"bar": []int64{}},
 			err: errNoMarkers,
 		},
 		{
@@ -320,14 +320,14 @@ func TestSelectQuery(t *testing.T) {
 				SelectClauses: []Marker{Column("bar")},
 				WhereClause:   MultiColumnIn("ab", Column("a"), Column("b")),
 			},
-			vs: map[string]interface{}{
-				"ab": []map[string]interface{}{
+			vs: map[string]any{
+				"ab": []map[string]any{
 					{"a": 1, "b": 2},
 					{"a": 3, "b": 4},
 				},
 			},
 			stmt: "SELECT bar FROM foo WHERE (a, b) IN (($1, $2), ($3, $4))",
-			args: []interface{}{1, 2, 3, 4},
+			args: []any{1, 2, 3, 4},
 		},
 		{
 			name: "multi column in empty",
@@ -336,8 +336,8 @@ func TestSelectQuery(t *testing.T) {
 				SelectClauses: []Marker{Column("bar")},
 				WhereClause:   MultiColumnIn("ab", Column("a"), Column("b")),
 			},
-			vs: map[string]interface{}{
-				"ab": []map[string]interface{}{},
+			vs: map[string]any{
+				"ab": []map[string]any{},
 			},
 			stmt: "SELECT bar FROM foo WHERE 1=0",
 		},
@@ -355,17 +355,17 @@ func TestSelectQuery(t *testing.T) {
 			ss: SelectStatement{
 				Table:         "foo",
 				SelectClauses: []Marker{Column("bar")},
-				WhereClause:   StaticMultiColumnIn([]Marker{Column("a"), Column("b")}, []map[string]interface{}{{"a": 1, "b": 2}, {"a": 3, "b": 4}}),
+				WhereClause:   StaticMultiColumnIn([]Marker{Column("a"), Column("b")}, []map[string]any{{"a": 1, "b": 2}, {"a": 3, "b": 4}}),
 			},
 			stmt: "SELECT bar FROM foo WHERE (a, b) IN (($1, $2), ($3, $4))",
-			args: []interface{}{1, 2, 3, 4},
+			args: []any{1, 2, 3, 4},
 		},
 		{
 			name: "static multi column in empty",
 			ss: SelectStatement{
 				Table:         "foo",
 				SelectClauses: []Marker{Column("bar")},
-				WhereClause:   StaticMultiColumnIn([]Marker{Column("a"), Column("b")}, []map[string]interface{}{}),
+				WhereClause:   StaticMultiColumnIn([]Marker{Column("a"), Column("b")}, []map[string]any{}),
 			},
 			stmt: "SELECT bar FROM foo WHERE 1=0",
 		},
@@ -374,7 +374,7 @@ func TestSelectQuery(t *testing.T) {
 			ss: SelectStatement{
 				Table:         "foo",
 				SelectClauses: []Marker{Column("bar")},
-				WhereClause:   StaticMultiColumnIn([]Marker{}, []map[string]interface{}{{"a": 1}}),
+				WhereClause:   StaticMultiColumnIn([]Marker{}, []map[string]any{{"a": 1}}),
 			},
 			stmt: "SELECT bar FROM foo WHERE 1=0",
 		},
@@ -386,8 +386,8 @@ func TestSelectQuery(t *testing.T) {
 				WhereClause:   StaticEq(SQLFunction(Column("biz"), "LOWER"), "bar"),
 			},
 			stmt: "SELECT biz FROM foo WHERE LOWER(biz) = $1",
-			vs:   map[string]interface{}{"biz": "bar"},
-			args: []interface{}{"bar"},
+			vs:   map[string]any{"biz": "bar"},
+			args: []any{"bar"},
 		},
 		{
 			name: "exists",
@@ -406,8 +406,8 @@ func TestSelectQuery(t *testing.T) {
 				},
 			},
 			stmt: "SELECT biz FROM foo WHERE EXISTS(SELECT 1 FROM bar WHERE (\"bar\".\"biz\" = \"foo\".\"biz\") AND (\"bar\".\"baz\" = $1))",
-			vs:   map[string]interface{}{"bar_baz": "qux"},
-			args: []interface{}{"qux"},
+			vs:   map[string]any{"bar_baz": "qux"},
+			args: []any{"qux"},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

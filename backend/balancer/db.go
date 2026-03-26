@@ -41,7 +41,7 @@ func (d *db) BeginTx(ctx context.Context, opts sql.TxOptions) (sql.Tx, error) {
 	return &tx{Tx: subTx, cfn: cfn}, nil
 }
 
-func (d *db) Exec(ctx context.Context, q string, vs ...interface{}) (sql.Result, error) {
+func (d *db) Exec(ctx context.Context, q string, vs ...any) (sql.Result, error) {
 	db, cfn, err := d.b.Get(ctx)
 
 	if err != nil {
@@ -59,9 +59,9 @@ type errScanner struct {
 	err error
 }
 
-func (esc errScanner) Scan(...interface{}) error { return esc.err }
+func (esc errScanner) Scan(...any) error { return esc.err }
 
-func (d *db) QueryRow(ctx context.Context, q string, vs ...interface{}) sql.Scanner {
+func (d *db) QueryRow(ctx context.Context, q string, vs ...any) sql.Scanner {
 	db, cfn, err := d.b.Get(ctx)
 
 	if err != nil {
@@ -71,7 +71,7 @@ func (d *db) QueryRow(ctx context.Context, q string, vs ...interface{}) sql.Scan
 	return &scanner{sc: db.QueryRow(ctx, q, vs...), cfn: cfn}
 }
 
-func (d *db) Query(ctx context.Context, q string, vs ...interface{}) (sql.Cursor, error) {
+func (d *db) Query(ctx context.Context, q string, vs ...any) (sql.Cursor, error) {
 	db, cfn, err := d.b.Get(ctx)
 
 	if err != nil {
@@ -92,7 +92,7 @@ type scanner struct {
 	cfn CloseFunc
 }
 
-func (sc *scanner) Scan(vs ...interface{}) error {
+func (sc *scanner) Scan(vs ...any) error {
 	err := sc.sc.Scan(vs...)
 
 	sc.cfn(err)

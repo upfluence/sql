@@ -31,7 +31,7 @@ func (oct *OnConflictTarget) Clone() *OnConflictTarget {
 	}
 }
 
-func (oct *OnConflictTarget) WriteTo(qw QueryWriter, vs map[string]interface{}) error {
+func (oct *OnConflictTarget) WriteTo(qw QueryWriter, vs map[string]any) error {
 	io.WriteString(qw, "(")
 
 	for i, f := range oct.Fields {
@@ -67,7 +67,7 @@ func (ms Update) Clone() OnConflictAction {
 }
 
 func (Update) isOnConflictAction() {}
-func (ms Update) WriteTo(qw QueryWriter, vs map[string]interface{}) error {
+func (ms Update) WriteTo(qw QueryWriter, vs map[string]any) error {
 	io.WriteString(qw, "UPDATE SET ")
 
 	return writeUpdateClauses(ms, qw, vs)
@@ -77,7 +77,7 @@ type nothing struct{}
 
 func (nothing) Clone() OnConflictAction { return Nothing }
 func (nothing) isOnConflictAction()     {}
-func (nothing) WriteTo(qw QueryWriter, _ map[string]interface{}) error {
+func (nothing) WriteTo(qw QueryWriter, _ map[string]any) error {
 	_, err := io.WriteString(qw, "NOTHING")
 
 	return err
@@ -147,11 +147,11 @@ func (is InsertStatement) returnings() []*sql.Returning {
 	return res
 }
 
-func (is InsertStatement) buildQuery(qvs map[string]interface{}) (string, []interface{}, error) {
-	return is.buildQueries([]map[string]interface{}{qvs}, qvs)
+func (is InsertStatement) buildQuery(qvs map[string]any) (string, []any, error) {
+	return is.buildQueries([]map[string]any{qvs}, qvs)
 }
 
-func (is InsertStatement) buildQueries(vvs []map[string]interface{}, qvs map[string]interface{}) (string, []interface{}, error) {
+func (is InsertStatement) buildQueries(vvs []map[string]any, qvs map[string]any) (string, []any, error) {
 	var qw queryWriter
 
 	if len(is.Fields) == 0 {

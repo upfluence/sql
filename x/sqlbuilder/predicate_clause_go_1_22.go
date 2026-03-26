@@ -4,6 +4,6 @@ package sqlbuilder
 
 import "reflect"
 
-func reflectSlice(vv interface{}) (reflect.Value, error) {
+func reflectSlice(vv any) (reflect.Value, error) {
 	return reflectSliceBasic(vv)
 }

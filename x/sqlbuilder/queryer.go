@@ -7,12 +7,12 @@ import (
 )
 
 type Queryer interface {
-	Query(context.Context, map[string]interface{}) (Cursor, error)
-	QueryRow(context.Context, map[string]interface{}) Scanner
+	Query(context.Context, map[string]any) (Cursor, error)
+	QueryRow(context.Context, map[string]any) Scanner
 }
 
 type Scanner interface {
-	Scan(map[string]interface{}) error
+	Scan(map[string]any) error
 }
 
 type scanner struct {
@@ -20,8 +20,8 @@ type scanner struct {
 	ks []string
 }
 
-func (sc *scanner) Scan(vs map[string]interface{}) error {
-	var svs = make([]interface{}, len(sc.ks))
+func (sc *scanner) Scan(vs map[string]any) error {
+	var svs = make([]any, len(sc.ks))
 
 	for i, k := range sc.ks {
 		v, ok := vs[k]
@@ -38,7 +38,7 @@ func (sc *scanner) Scan(vs map[string]interface{}) error {
 
 type ErrScanner struct{ Err error }
 
-func (es ErrScanner) Scan(map[string]interface{}) error { return es.Err }
+func (es ErrScanner) Scan(map[string]any) error { return es.Err }
 
 type Cursor interface {
 	Scanner
@@ -56,7 +56,7 @@ type cursor struct {
 	sc Scanner
 }
 
-func (c *cursor) Scan(vs map[string]interface{}) error {
+func (c *cursor) Scan(vs map[string]any) error {
 	return c.sc.Scan(vs)
 }
 

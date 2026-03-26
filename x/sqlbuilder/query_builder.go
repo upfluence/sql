@@ -42,7 +42,7 @@ func (qb *QueryBuilder) PrepareDelete(ds DeleteStatement) *DeleteExecer {
 }
 
 type statement interface {
-	buildQuery(map[string]interface{}) (string, []interface{}, error)
+	buildQuery(map[string]any) (string, []any, error)
 }
 
 type InsertExecer struct {
@@ -56,11 +56,11 @@ type errScanner struct {
 	error
 }
 
-func (es errScanner) Scan(...interface{}) error {
+func (es errScanner) Scan(...any) error {
 	return es.error
 }
 
-func (ie *InsertExecer) QueryRow(ctx context.Context, qvs map[string]interface{}) sql.Scanner {
+func (ie *InsertExecer) QueryRow(ctx context.Context, qvs map[string]any) sql.Scanner {
 	stmt := ie.Statement
 	stmt.isQuery = true
 
@@ -73,7 +73,7 @@ func (ie *InsertExecer) QueryRow(ctx context.Context, qvs map[string]interface{}
 	return ie.qb.QueryRow(ctx, sstmt, vs...)
 }
 
-func (ie *InsertExecer) MultiExec(ctx context.Context, vvs []map[string]interface{}, qvs map[string]interface{}) (sql.Result, error) {
+func (ie *InsertExecer) MultiExec(ctx context.Context, vvs []map[string]any, qvs map[string]any) (sql.Result, error) {
 	stmt, vs, err := ie.Statement.buildQueries(vvs, qvs)
 
 	if err != nil {
@@ -102,7 +102,7 @@ type SelectQueryer struct {
 	Statement    SelectStatement
 }
 
-func (sq *SelectQueryer) Query(ctx context.Context, qvs map[string]interface{}) (Cursor, error) {
+func (sq *SelectQueryer) Query(ctx context.Context, qvs map[string]any) (Cursor, error) {
 	stmt, vs, ks, err := sq.Statement.buildQuery(qvs)
 
 	if err != nil {
@@ -118,7 +118,7 @@ func (sq *SelectQueryer) Query(ctx context.Context, qvs map[string]interface{}) 
 	return &cursor{sc: &scanner{sc: cur, ks: ks}, Cursor: cur}, nil
 }
 
-func (sq *SelectQueryer) QueryRow(ctx context.Context, qvs map[string]interface{}) Scanner {
+func (sq *SelectQueryer) QueryRow(ctx context.Context, qvs map[string]any) Scanner {
 	stmt, vs, ks, err := sq.Statement.buildQuery(qvs)
 
 	if err != nil {
@@ -131,17 +131,17 @@ func (sq *SelectQueryer) QueryRow(ctx context.Context, qvs map[string]interface{
 type QueryWriter interface {
 	io.Writer
 
-	RedeemVariable(interface{}) string
+	RedeemVariable(any) string
 }
 
 type queryWriter struct {
 	strings.Builder
 
 	i  int
-	vs []interface{}
+	vs []any
 }
 
-func (qw *queryWriter) RedeemVariable(v interface{}) string {
+func (qw *queryWriter) RedeemVariable(v any) string {
 	qw.i++
 	qw.vs = append(qw.vs, v)
 	return fmt.Sprintf("$%d", qw.i)

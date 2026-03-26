@@ -104,7 +104,7 @@ func TestUpserterRegular(t *testing.T) {
 
 			res, err := e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": nilDBValue{}, "z": "buz"},
+				map[string]any{"x": "foo", "y": nilDBValue{}, "z": "buz"},
 			)
 
 			if err != nil {
@@ -115,7 +115,7 @@ func TestUpserterRegular(t *testing.T) {
 
 			res, err = e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": stringDBValue("bar"), "z": "buz"},
+				map[string]any{"x": "foo", "y": stringDBValue("bar"), "z": "buz"},
 			)
 
 			if err != nil {
@@ -126,7 +126,7 @@ func TestUpserterRegular(t *testing.T) {
 
 			res, err = e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": stringDBValue("bar"), "z": "buz"},
+				map[string]any{"x": "foo", "y": stringDBValue("bar"), "z": "buz"},
 			)
 
 			if err != nil {
@@ -137,7 +137,7 @@ func TestUpserterRegular(t *testing.T) {
 
 			res, err = e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": "barz", "z": "buz"},
+				map[string]any{"x": "foo", "y": "barz", "z": "buz"},
 			)
 
 			if err != nil {
@@ -176,7 +176,7 @@ func TestUpserterReturning(t *testing.T) {
 
 		res, err := e.Exec(
 			ctx,
-			map[string]interface{}{"y": "bar", "z": "buz"},
+			map[string]any{"y": "bar", "z": "buz"},
 		)
 
 		if err != nil {
@@ -188,7 +188,7 @@ func TestUpserterReturning(t *testing.T) {
 
 		res, err = e.Exec(
 			ctx,
-			map[string]interface{}{"y": "bar", "z": "buz"},
+			map[string]any{"y": "bar", "z": "buz"},
 		)
 
 		if err != nil {
@@ -200,7 +200,7 @@ func TestUpserterReturning(t *testing.T) {
 
 		res, err = e.Exec(
 			ctx,
-			map[string]interface{}{"y": "bar", "z": "biz"},
+			map[string]any{"y": "bar", "z": "biz"},
 		)
 
 		if err != nil {
@@ -212,7 +212,7 @@ func TestUpserterReturning(t *testing.T) {
 
 		res, err = e.Exec(
 			ctx,
-			map[string]interface{}{"y": "barz", "z": "buz"},
+			map[string]any{"y": "barz", "z": "buz"},
 		)
 
 		if err != nil {
@@ -256,7 +256,7 @@ func TestUpserterInsertValue(t *testing.T) {
 
 			_, err = e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+				map[string]any{"x": "foo", "y": "bar", "z": "buz"},
 			)
 
 			if err != nil {
@@ -265,7 +265,7 @@ func TestUpserterInsertValue(t *testing.T) {
 
 			_, err = e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": "far", "z": "fuz"},
+				map[string]any{"x": "foo", "y": "far", "z": "fuz"},
 			)
 
 			if err != nil {
@@ -323,7 +323,7 @@ func TestUpserterUpdateOnly(t *testing.T) {
 
 			res, err := e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+				map[string]any{"x": "foo", "y": "bar", "z": "buz"},
 			)
 
 			if err != nil {
@@ -374,7 +374,7 @@ func TestUpserterInsertOnly(t *testing.T) {
 
 			res, err := e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": "bar", "z": "buz"},
+				map[string]any{"x": "foo", "y": "bar", "z": "buz"},
 			)
 
 			if err != nil {
@@ -385,7 +385,7 @@ func TestUpserterInsertOnly(t *testing.T) {
 
 			res, err = e.Exec(
 				ctx,
-				map[string]interface{}{"x": "foo", "y": "far", "z": "fuz"},
+				map[string]any{"x": "foo", "y": "far", "z": "fuz"},
 			)
 
 			if err != nil {
@@ -438,7 +438,7 @@ func TestUpserterOnlyQueryValues(t *testing.T) {
 
 		res, err := e.Exec(
 			ctx,
-			map[string]interface{}{"x": "foo"},
+			map[string]any{"x": "foo"},
 		)
 
 		if err != nil {
@@ -449,7 +449,7 @@ func TestUpserterOnlyQueryValues(t *testing.T) {
 
 		res, err = e.Exec(
 			ctx,
-			map[string]interface{}{"x": "foo"},
+			map[string]any{"x": "foo"},
 		)
 
 		if err != nil {
@@ -492,7 +492,7 @@ func TestInTxUpserterPristine(t *testing.T) {
 
 		res, err := e.Exec(
 			ctx,
-			map[string]interface{}{"x": "foo"},
+			map[string]any{"x": "foo"},
 		)
 
 		if err != nil {
@@ -503,7 +503,7 @@ func TestInTxUpserterPristine(t *testing.T) {
 
 		res, err = e.Exec(
 			ctx,
-			map[string]interface{}{"x": "foo"},
+			map[string]any{"x": "foo"},
 		)
 
 		if err != nil {

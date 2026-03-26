@@ -12,7 +12,7 @@ import (
 
 type errExecer struct{ error }
 
-func (ee errExecer) Exec(context.Context, map[string]interface{}) (sql.Result, error) {
+func (ee errExecer) Exec(context.Context, map[string]any) (sql.Result, error) {
 	return nil, ee.error
 }
 
@@ -206,7 +206,7 @@ type assertMarker struct {
 	sqlbuilder.Marker
 }
 
-func (am *assertMarker) WriteTo(qw sqlbuilder.QueryWriter, vs map[string]interface{}) error {
+func (am *assertMarker) WriteTo(qw sqlbuilder.QueryWriter, vs map[string]any) error {
 	_, err := fmt.Fprintf(
 		qw,
 		"%s = %s",
@@ -217,14 +217,14 @@ func (am *assertMarker) WriteTo(qw sqlbuilder.QueryWriter, vs map[string]interfa
 	return err
 }
 
-func (e *execer) Exec(ctx context.Context, vs map[string]interface{}) (sql.Result, error) {
+func (e *execer) Exec(ctx context.Context, vs map[string]any) (sql.Result, error) {
 	var (
 		res    sql.Result
 		lastID int64
 		one    int64
 
-		existing = map[string]interface{}{"one": &one}
-		qvs      = make(map[string]interface{})
+		existing = map[string]any{"one": &one}
+		qvs      = make(map[string]any)
 	)
 
 	for _, f := range e.qfs {

@@ -10,10 +10,10 @@ import (
 
 type Query struct {
 	Query string
-	Args  []interface{}
+	Args  []any
 }
 
-func (q Query) Assert(t *testing.T, stmt string, args ...interface{}) {
+func (q Query) Assert(t *testing.T, stmt string, args ...any) {
 	if q.Query != stmt {
 		t.Errorf("q.Query = %v, want %v", q.Query, stmt)
 	}
@@ -64,17 +64,17 @@ func (db *DB) BeginTx(context.Context, sql.TxOptions) (sql.Tx, error) {
 	return db.Tx, db.TxErr
 }
 
-func (q *Queryer) Exec(_ context.Context, stmt string, args ...interface{}) (sql.Result, error) {
+func (q *Queryer) Exec(_ context.Context, stmt string, args ...any) (sql.Result, error) {
 	q.ExecQueries = append(q.ExecQueries, Query{stmt, args})
 	return q.ExecResult, q.ExecErr
 }
 
-func (q *Queryer) QueryRow(_ context.Context, stmt string, args ...interface{}) sql.Scanner {
+func (q *Queryer) QueryRow(_ context.Context, stmt string, args ...any) sql.Scanner {
 	q.QueryRowQueries = append(q.QueryRowQueries, Query{stmt, args})
 	return q.QueryRowScanner
 }
 
-func (q *Queryer) Query(_ context.Context, stmt string, args ...interface{}) (sql.Cursor, error) {
+func (q *Queryer) Query(_ context.Context, stmt string, args ...any) (sql.Cursor, error) {
 	q.QueryQueries = append(q.QueryQueries, Query{stmt, args})
 	return q.QueryScanner, q.QueryErr
 }

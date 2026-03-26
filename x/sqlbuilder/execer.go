@@ -7,7 +7,7 @@ import (
 )
 
 type Execer interface {
-	Exec(context.Context, map[string]interface{}) (sql.Result, error)
+	Exec(context.Context, map[string]any) (sql.Result, error)
 }
 
 type execer struct {
@@ -15,7 +15,7 @@ type execer struct {
 	stmt statement
 }
 
-func (e execer) Exec(ctx context.Context, qvs map[string]interface{}) (sql.Result, error) {
+func (e execer) Exec(ctx context.Context, qvs map[string]any) (sql.Result, error) {
 	stmt, vs, err := e.stmt.buildQuery(qvs)
 
 	if err != nil {
@@ -31,7 +31,7 @@ type RetryExecer struct {
 	RetryCount  int
 }
 
-func (re *RetryExecer) Exec(ctx context.Context, qvs map[string]interface{}) (sql.Result, error) {
+func (re *RetryExecer) Exec(ctx context.Context, qvs map[string]any) (sql.Result, error) {
 	var i int
 
 	for {

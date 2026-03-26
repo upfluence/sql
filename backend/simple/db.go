@@ -65,7 +65,7 @@ func (tx *tx) Rollback() error {
 	return err
 }
 
-func (tx *tx) Exec(ctx context.Context, qry string, vs ...interface{}) (sql.Result, error) {
+func (tx *tx) Exec(ctx context.Context, qry string, vs ...any) (sql.Result, error) {
 	select {
 	case <-tx.ctx.Done():
 		return nil, tx.ctx.Err()
@@ -85,7 +85,7 @@ type scanner struct {
 	tx *tx
 }
 
-func (s *scanner) Scan(vs ...interface{}) error {
+func (s *scanner) Scan(vs ...any) error {
 	err := s.s.Scan(vs...)
 
 	<-s.tx.ch
@@ -97,11 +97,11 @@ type errScanner struct {
 	error
 }
 
-func (es errScanner) Scan(...interface{}) error {
+func (es errScanner) Scan(...any) error {
 	return es.error
 }
 
-func (tx *tx) QueryRow(ctx context.Context, qry string, vs ...interface{}) sql.Scanner {
+func (tx *tx) QueryRow(ctx context.Context, qry string, vs ...any) sql.Scanner {
 	select {
 	case <-tx.ctx.Done():
 		return errScanner{tx.ctx.Err()}
@@ -128,7 +128,7 @@ func (c *cursor) Close() error {
 	return err
 }
 
-func (tx *tx) Query(ctx context.Context, qry string, vs ...interface{}) (sql.Cursor, error) {
+func (tx *tx) Query(ctx context.Context, qry string, vs ...any) (sql.Cursor, error) {
 	select {
 	case <-tx.ctx.Done():
 		return nil, tx.ctx.Err()

@@ -11,10 +11,10 @@ func TestDeleteQuery(t *testing.T) {
 		name string
 
 		ds DeleteStatement
-		vs map[string]interface{}
+		vs map[string]any
 
 		stmt string
-		args []interface{}
+		args []any
 		err  error
 	}{
 		{
@@ -28,9 +28,9 @@ func TestDeleteQuery(t *testing.T) {
 				Table:       "foo",
 				WhereClause: Eq(Column("biz")),
 			},
-			vs:   map[string]interface{}{"buz": 1, "biz": 2},
+			vs:   map[string]any{"buz": 1, "biz": 2},
 			stmt: "DELETE FROM foo WHERE biz = $1",
-			args: []interface{}{2},
+			args: []any{2},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

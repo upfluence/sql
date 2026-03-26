@@ -54,7 +54,7 @@ func assertReader(t *testing.T, r Reader, ids []int64) {
 	err = sqlbuilder.ScrollCursor(cur, func(sc sqlbuilder.Scanner) error {
 		var x int64
 
-		if err := sc.Scan(map[string]interface{}{"x": &x}); err != nil {
+		if err := sc.Scan(map[string]any{"x": &x}); err != nil {
 			return err
 		}
 

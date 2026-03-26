@@ -12,7 +12,7 @@ import (
 func TestStringSlice_Scan(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
-		value   interface{}
+		value   any
 		want    []string
 		wantErr errtest.ErrorAssertion
 	}{

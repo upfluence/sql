@@ -19,7 +19,7 @@ type testLogger struct {
 	testing.TB
 }
 
-func (tl testLogger) Log(ot logger.OpType, q string, vs []interface{}, d time.Duration) {
+func (tl testLogger) Log(ot logger.OpType, q string, vs []any, d time.Duration) {
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "[OpType: %s] [Duration: %s] ", ot, d.String())

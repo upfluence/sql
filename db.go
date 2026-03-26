@@ -24,13 +24,13 @@ type Option interface {
 }
 
 type Scanner interface {
-	Scan(...interface{}) error
+	Scan(...any) error
 }
 
 type Queryer interface {
-	Exec(context.Context, string, ...interface{}) (Result, error)
-	QueryRow(context.Context, string, ...interface{}) Scanner
-	Query(context.Context, string, ...interface{}) (Cursor, error)
+	Exec(context.Context, string, ...any) (Result, error)
+	QueryRow(context.Context, string, ...any) Scanner
+	Query(context.Context, string, ...any) (Cursor, error)
 }
 
 type DB interface {
@@ -59,8 +59,8 @@ const (
 	StronglyConsistent
 )
 
-func StripOptions(vs []interface{}) []interface{} {
-	var res []interface{}
+func StripOptions(vs []any) []any {
+	var res []any
 
 	for _, v := range vs {
 		if _, ok := v.(Option); !ok {

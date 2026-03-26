@@ -11,7 +11,7 @@ type NullUTCTime struct {
 	Valid bool
 }
 
-func (nut *NullUTCTime) Scan(v interface{}) error {
+func (nut *NullUTCTime) Scan(v any) error {
 	var nt sql.NullTime
 
 	if err := nt.Scan(v); err != nil {

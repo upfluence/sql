@@ -22,7 +22,7 @@ const (
 )
 
 type Logger interface {
-	Log(OpType, string, []interface{}, time.Duration)
+	Log(OpType, string, []any, time.Duration)
 }
 
 type simplifiedLogger struct {
@@ -39,13 +39,13 @@ func (d *durationField) GetValue() string { return fmt.Sprintf("%v", d.d) }
 
 type dynamicField struct {
 	name  string
-	value interface{}
+	value any
 }
 
 func (d *dynamicField) GetKey() string   { return d.name }
 func (d *dynamicField) GetValue() string { return fmt.Sprintf("%v", d.value) }
 
-func (l *simplifiedLogger) Log(_ OpType, q string, vs []interface{}, d time.Duration) {
+func (l *simplifiedLogger) Log(_ OpType, q string, vs []any, d time.Duration) {
 	var fs = make([]record.Field, len(vs)+1)
 
 	fs[0] = &durationField{d}
@@ -122,11 +122,11 @@ type queryer struct {
 	l Logger
 }
 
-func (q *queryer) logRequest(t OpType, t0 time.Time, qry string, vs []interface{}) {
+func (q *queryer) logRequest(t OpType, t0 time.Time, qry string, vs []any) {
 	q.l.Log(t, qry, sql.StripOptions(vs), time.Since(t0))
 }
 
-func (q *queryer) Exec(ctx context.Context, qry string, vs ...interface{}) (sql.Result, error) {
+func (q *queryer) Exec(ctx context.Context, qry string, vs ...any) (sql.Result, error) {
 	var t0 = time.Now()
 
 	defer q.logRequest(Exec, t0, qry, vs)
@@ -134,7 +134,7 @@ func (q *queryer) Exec(ctx context.Context, qry string, vs ...interface{}) (sql.
 	return q.Queryer.Exec(ctx, qry, vs...)
 }
 
-func (q *queryer) QueryRow(ctx context.Context, qry string, vs ...interface{}) sql.Scanner {
+func (q *queryer) QueryRow(ctx context.Context, qry string, vs ...any) sql.Scanner {
 	var t0 = time.Now()
 
 	defer q.logRequest(QueryRow, t0, qry, vs)
@@ -142,7 +142,7 @@ func (q *queryer) QueryRow(ctx context.Context, qry string, vs ...interface{}) s
 	return q.Queryer.QueryRow(ctx, qry, vs...)
 }
 
-func (q *queryer) Query(ctx context.Context, qry string, vs ...interface{}) (sql.Cursor, error) {
+func (q *queryer) Query(ctx context.Context, qry string, vs ...any) (sql.Cursor, error) {
 	var t0 = time.Now()
 
 	defer q.logRequest(Query, t0, qry, vs)

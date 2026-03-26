@@ -10,7 +10,7 @@ import (
 
 type emptyScanner struct{}
 
-func (esc emptyScanner) Scan(...interface{}) error { return nil }
+func (esc emptyScanner) Scan(...any) error { return nil }
 
 func TestRoundRobin(t *testing.T) {
 	var (

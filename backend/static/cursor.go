@@ -5,27 +5,27 @@ import (
 )
 
 func StringArg(s string) ScanArg {
-	return func(v interface{}) {
+	return func(v any) {
 		target := v.(*string)
 		*target = s
 	}
 }
 
 func Int64Arg(s int64) ScanArg {
-	return func(v interface{}) {
+	return func(v any) {
 		target := v.(*int64)
 		*target = s
 	}
 }
 
-type ScanArg func(interface{})
+type ScanArg func(any)
 
 type Scanner struct {
 	Err  error
 	Args []ScanArg
 }
 
-func (s Scanner) Scan(vs ...interface{}) error {
+func (s Scanner) Scan(vs ...any) error {
 	for i, v := range vs {
 		if i < len(s.Args) {
 			s.Args[i](v)
@@ -47,7 +47,7 @@ type SingleCursor struct {
 func (c *SingleCursor) Err() error   { return c.ReturnedErr }
 func (c *SingleCursor) Close() error { return c.CloseErr }
 func (c *SingleCursor) Next() bool   { return !c.seen }
-func (c *SingleCursor) Scan(vs ...interface{}) error {
+func (c *SingleCursor) Scan(vs ...any) error {
 	if c.seen {
 		return sql.ErrNoRows
 	}
@@ -70,7 +70,7 @@ func (c *MultipleCursor) Err() error   { return c.ReturnedErr }
 func (c *MultipleCursor) Close() error { return c.CloseErr }
 func (c *MultipleCursor) Next() bool   { return c.i < len(c.Scanners) }
 
-func (c *MultipleCursor) Scan(vs ...interface{}) error {
+func (c *MultipleCursor) Scan(vs ...any) error {
 	if c.i < len(c.Scanners) {
 		defer func() { c.i++ }()
 		return c.Scanners[c.i].Scan(vs...)

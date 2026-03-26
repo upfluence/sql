@@ -18,7 +18,7 @@ type StringSlice struct {
 	Valid   bool
 }
 
-func (ss *StringSlice) Scan(v interface{}) error {
+func (ss *StringSlice) Scan(v any) error {
 	var r io.Reader
 
 	switch vv := v.(type) {

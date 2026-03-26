@@ -53,7 +53,7 @@ type queryer struct {
 	q sql.Queryer
 }
 
-func (q *queryer) Exec(ctx context.Context, stmt string, vs ...interface{}) (sql.Result, error) {
+func (q *queryer) Exec(ctx context.Context, stmt string, vs ...any) (sql.Result, error) {
 	stmt, vs, err := q.rewrite(stmt, vs)
 
 	if err != nil {
@@ -65,7 +65,7 @@ func (q *queryer) Exec(ctx context.Context, stmt string, vs ...interface{}) (sql
 	return res, wrapErr(err)
 }
 
-func (q *queryer) QueryRow(ctx context.Context, stmt string, vs ...interface{}) sql.Scanner {
+func (q *queryer) QueryRow(ctx context.Context, stmt string, vs ...any) sql.Scanner {
 	stmt, vs, err := q.rewrite(stmt, vs)
 
 	if err != nil {
@@ -79,7 +79,7 @@ type scanner struct {
 	sc sql.Scanner
 }
 
-func (sc *scanner) Scan(vs ...interface{}) error {
+func (sc *scanner) Scan(vs ...any) error {
 	return wrapErr(sc.sc.Scan(vs...))
 }
 
@@ -87,7 +87,7 @@ type cursor struct {
 	sql.Cursor
 }
 
-func (c *cursor) Scan(vs ...interface{}) error {
+func (c *cursor) Scan(vs ...any) error {
 	return wrapErr(c.Cursor.Scan(vs...))
 }
 
@@ -95,9 +95,9 @@ type errScanner struct {
 	error
 }
 
-func (es errScanner) Scan(...interface{}) error { return es.error }
+func (es errScanner) Scan(...any) error { return es.error }
 
-func (q *queryer) Query(ctx context.Context, stmt string, vs ...interface{}) (sql.Cursor, error) {
+func (q *queryer) Query(ctx context.Context, stmt string, vs ...any) (sql.Cursor, error) {
 	stmt, vs, err := q.rewrite(stmt, vs)
 
 	if err != nil {
@@ -109,7 +109,7 @@ func (q *queryer) Query(ctx context.Context, stmt string, vs ...interface{}) (sq
 	return &cursor{Cursor: cur}, wrapErr(err)
 }
 
-func (q *queryer) rewrite(stmt string, vs []interface{}) (string, []interface{}, error) {
+func (q *queryer) rewrite(stmt string, vs []any) (string, []any, error) {
 	var (
 		args = make(map[int]int)
 
@@ -135,7 +135,7 @@ func (q *queryer) rewrite(stmt string, vs []interface{}) (string, []interface{},
 		return "", nil, ErrInvalidArgsNumber
 	}
 
-	rvs := make([]interface{}, len(vs))
+	rvs := make([]any, len(vs))
 
 	for k, i := range args {
 		if k > len(rvs) {

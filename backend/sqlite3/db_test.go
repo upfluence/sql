@@ -17,39 +17,39 @@ func TestQueryer(t *testing.T) {
 		err     error
 	}{
 		{
-			in:  static.Query{Query: "foo", Args: []interface{}{}},
-			out: static.Query{Query: "foo", Args: []interface{}{}},
+			in:  static.Query{Query: "foo", Args: []any{}},
+			out: static.Query{Query: "foo", Args: []any{}},
 		},
 
 		{
-			in:  static.Query{Query: "$1, $2, $3", Args: []interface{}{1, 2, 3}},
-			out: static.Query{Query: "?, ?, ?", Args: []interface{}{1, 2, 3}},
+			in:  static.Query{Query: "$1, $2, $3", Args: []any{1, 2, 3}},
+			out: static.Query{Query: "?, ?, ?", Args: []any{1, 2, 3}},
 		},
 		{
-			in:  static.Query{Query: "$2, $3, $1", Args: []interface{}{1, 2, 3}},
-			out: static.Query{Query: "?, ?, ?", Args: []interface{}{2, 3, 1}},
+			in:  static.Query{Query: "$2, $3, $1", Args: []any{1, 2, 3}},
+			out: static.Query{Query: "?, ?, ?", Args: []any{2, 3, 1}},
 		},
 		{
-			in:  static.Query{Query: "$2, $1, $3", Args: []interface{}{1, 2, 3}},
-			out: static.Query{Query: "?, ?, ?", Args: []interface{}{2, 1, 3}},
+			in:  static.Query{Query: "$2, $1, $3", Args: []any{1, 2, 3}},
+			out: static.Query{Query: "?, ?, ?", Args: []any{2, 1, 3}},
 		},
 		{
 			in: static.Query{
 				Query: "$2, $1, $3",
-				Args:  []interface{}{1, 2, 3, &sql.Returning{Field: "foo"}},
+				Args:  []any{1, 2, 3, &sql.Returning{Field: "foo"}},
 			},
-			out: static.Query{Query: "?, ?, ?", Args: []interface{}{2, 1, 3}},
+			out: static.Query{Query: "?, ?, ?", Args: []any{2, 1, 3}},
 		},
 		{
-			in:  static.Query{Query: "$2, $1, $3, $4", Args: []interface{}{1, 2, 3}},
+			in:  static.Query{Query: "$2, $1, $3, $4", Args: []any{1, 2, 3}},
 			err: ErrInvalidArgsNumber,
 		},
 		{
-			in:  static.Query{Query: "$2, $1, $4", Args: []interface{}{1, 2, 3}},
+			in:  static.Query{Query: "$2, $1, $4", Args: []any{1, 2, 3}},
 			err: ErrInvalidArgsNumber,
 		},
 		{
-			in:  static.Query{Query: "$2, $1, $3", Args: []interface{}{1, 2, 3, 4}},
+			in:  static.Query{Query: "$2, $1, $3", Args: []any{1, 2, 3, 4}},
 			err: ErrInvalidArgsNumber,
 		},
 	} {

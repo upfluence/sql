@@ -17,7 +17,7 @@ type mockDB struct {
 	called bool
 }
 
-func (mdb *mockDB) Query(_ context.Context, q string, vs ...interface{}) (sql.Cursor, error) {
+func (mdb *mockDB) Query(_ context.Context, q string, vs ...any) (sql.Cursor, error) {
 	mdb.called = true
 
 	return nil, nil
@@ -32,7 +32,7 @@ func (p mockParser) GetStatementType(q string) sqlparser.StmtType {
 func TestPickDB(t *testing.T) {
 	tests := []struct {
 		name       string
-		args       []interface{}
+		args       []any
 		stype      sqlparser.StmtType
 		wantMaster bool
 	}{
@@ -48,7 +48,7 @@ func TestPickDB(t *testing.T) {
 		},
 		{
 			name:       "strongly consistent",
-			args:       []interface{}{sql.StronglyConsistent},
+			args:       []any{sql.StronglyConsistent},
 			stype:      sqlparser.StmtSelect,
 			wantMaster: true,
 		},

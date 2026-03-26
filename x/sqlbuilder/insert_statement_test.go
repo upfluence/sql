@@ -12,10 +12,10 @@ func TestInsertQuery(t *testing.T) {
 		name string
 
 		is InsertStatement
-		vs map[string]interface{}
+		vs map[string]any
 
 		stmt string
-		args []interface{}
+		args []any
 		err  error
 	}{
 		{
@@ -24,14 +24,14 @@ func TestInsertQuery(t *testing.T) {
 				Table:  "foo",
 				Fields: []Marker{Column("biz"), Column("buz")},
 			},
-			vs:   map[string]interface{}{"buz": 1, "biz": 2},
+			vs:   map[string]any{"buz": 1, "biz": 2},
 			stmt: "INSERT INTO foo(biz, buz) VALUES ($1, $2)",
-			args: []interface{}{2, 1},
+			args: []any{2, 1},
 		},
 		{
 			name: "error no marker",
 			is:   InsertStatement{Table: "foo"},
-			vs:   map[string]interface{}{"bar": []int64{}},
+			vs:   map[string]any{"bar": []int64{}},
 			err:  errNoMarkers,
 		},
 		{
@@ -40,7 +40,7 @@ func TestInsertQuery(t *testing.T) {
 				Table:  "foo",
 				Fields: []Marker{Column("biz"), Column("buz")},
 			},
-			vs:  map[string]interface{}{"buz": 1},
+			vs:  map[string]any{"buz": 1},
 			err: ErrMissingKey{Key: "biz"},
 		},
 		{
@@ -50,9 +50,9 @@ func TestInsertQuery(t *testing.T) {
 				Fields:    []Marker{Column("buz")},
 				Returning: &sql.Returning{Field: "bar"},
 			},
-			vs:   map[string]interface{}{"buz": 1},
+			vs:   map[string]any{"buz": 1},
 			stmt: "INSERT INTO foo(buz) VALUES ($1)",
-			args: []interface{}{1, &sql.Returning{Field: "bar"}},
+			args: []any{1, &sql.Returning{Field: "bar"}},
 		},
 		{
 			name: "with on conflict nothing",
@@ -63,9 +63,9 @@ func TestInsertQuery(t *testing.T) {
 					Action: Nothing,
 				},
 			},
-			vs:   map[string]interface{}{"buz": 1},
+			vs:   map[string]any{"buz": 1},
 			stmt: "INSERT INTO foo(buz) VALUES ($1) ON CONFLICT DO NOTHING",
-			args: []interface{}{1},
+			args: []any{1},
 		},
 		{
 			name: "with on conflict update",
@@ -81,9 +81,9 @@ func TestInsertQuery(t *testing.T) {
 					},
 				},
 			},
-			vs:   map[string]interface{}{"buz": 1, "bar": 2},
+			vs:   map[string]any{"buz": 1, "bar": 2},
 			stmt: "INSERT INTO foo(buz) VALUES ($1) ON CONFLICT (buz) DO UPDATE SET bar = $2",
-			args: []interface{}{1, 2},
+			args: []any{1, 2},
 		},
 		{
 			name: "with returning + isQuery",
@@ -93,9 +93,9 @@ func TestInsertQuery(t *testing.T) {
 				Returning: &sql.Returning{Field: "buz"},
 				isQuery:   true,
 			},
-			vs:   map[string]interface{}{"buz": 1},
+			vs:   map[string]any{"buz": 1},
 			stmt: "INSERT INTO foo(buz) VALUES ($1) RETURNING buz",
-			args: []interface{}{1},
+			args: []any{1},
 		},
 		{
 			name: "with returnings ",
@@ -107,9 +107,9 @@ func TestInsertQuery(t *testing.T) {
 					{Field: "bar"},
 				},
 			},
-			vs:   map[string]interface{}{"buz": 1},
+			vs:   map[string]any{"buz": 1},
 			stmt: "INSERT INTO foo(buz) VALUES ($1) RETURNING buz, bar",
-			args: []interface{}{1},
+			args: []any{1},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

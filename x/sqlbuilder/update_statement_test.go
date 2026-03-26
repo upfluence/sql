@@ -11,10 +11,10 @@ func TestUpdateQuery(t *testing.T) {
 		name string
 
 		us UpdateStatement
-		vs map[string]interface{}
+		vs map[string]any
 
 		stmt string
-		args []interface{}
+		args []any
 		err  error
 	}{
 		{
@@ -23,7 +23,7 @@ func TestUpdateQuery(t *testing.T) {
 				Table:  "foo",
 				Fields: []Marker{Column("biz"), Column("buz")},
 			},
-			vs:  map[string]interface{}{"buz": 1, "biz": 2},
+			vs:  map[string]any{"buz": 1, "biz": 2},
 			err: ErrMissingPredicate,
 		},
 		{
@@ -33,9 +33,9 @@ func TestUpdateQuery(t *testing.T) {
 				Fields:      []Marker{Column("biz"), Column("buz")},
 				WhereClause: Eq(Column("bar")),
 			},
-			vs:   map[string]interface{}{"buz": 1, "biz": 2, "bar": "foo"},
+			vs:   map[string]any{"buz": 1, "biz": 2, "bar": "foo"},
 			stmt: "UPDATE foo SET biz = $1, buz = $2 WHERE bar = $3",
-			args: []interface{}{2, 1, "foo"},
+			args: []any{2, 1, "foo"},
 		},
 		{
 			name: "error no markers",
@@ -43,7 +43,7 @@ func TestUpdateQuery(t *testing.T) {
 				Table:       "foo",
 				WhereClause: Eq(Column("bar")),
 			},
-			vs:  map[string]interface{}{"buz": 1, "biz": 2, "bar": "foo"},
+			vs:  map[string]any{"buz": 1, "biz": 2, "bar": "foo"},
 			err: errNoMarkers,
 		},
 		{
@@ -53,7 +53,7 @@ func TestUpdateQuery(t *testing.T) {
 				Fields:      []Marker{Column("biz"), Column("buz")},
 				WhereClause: Eq(Column("bar")),
 			},
-			vs:  map[string]interface{}{"buz": 1, "bar": "foo"},
+			vs:  map[string]any{"buz": 1, "bar": "foo"},
 			err: ErrMissingKey{"biz"},
 		},
 	} {

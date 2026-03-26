@@ -25,7 +25,7 @@ type JoinClause struct {
 	WhereClause PredicateClause
 }
 
-func (jc JoinClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
+func (jc JoinClause) WriteTo(w QueryWriter, vs map[string]any) error {
 	fmt.Fprintf(w, " %s JOIN %s", strings.ToUpper(string(jc.Type)), jc.Table)
 
 	if jc.WhereClause == nil {

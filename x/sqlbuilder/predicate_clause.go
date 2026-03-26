@@ -38,7 +38,7 @@ func (sspcw *staticStmtPredicateClauseWrapper) Clone() PredicateClause {
 	return &staticStmtPredicateClauseWrapper{sspc: sspcw.sspc.Clone()}
 }
 
-func (sspcw *staticStmtPredicateClauseWrapper) WriteTo(w QueryWriter, _ map[string]interface{}) error {
+func (sspcw *staticStmtPredicateClauseWrapper) WriteTo(w QueryWriter, _ map[string]any) error {
 	io.WriteString(w, sspcw.sspc.ToSQL())
 
 	return nil
@@ -51,11 +51,11 @@ type StaticValuePredicateClause interface {
 
 type staticClause struct {
 	pc PredicateClause
-	vs map[string]interface{}
+	vs map[string]any
 }
 
 func (sc *staticClause) Clone() StaticValuePredicateClause {
-	vs := make(map[string]interface{}, len(sc.vs))
+	vs := make(map[string]any, len(sc.vs))
 
 	for k, v := range sc.vs {
 		vs[k] = v
@@ -68,42 +68,42 @@ func (sc *staticClause) WriteTo(w QueryWriter) error {
 	return sc.pc.WriteTo(w, sc.vs)
 }
 
-func Static(pc PredicateClause, vs map[string]interface{}) PredicateClause {
+func Static(pc PredicateClause, vs map[string]any) PredicateClause {
 	return &staticValuePredicateClauseWrapper{
 		svpc: &staticClause{pc: pc, vs: vs},
 	}
 }
 
-func StaticIn(m Marker, v interface{}) PredicateClause {
-	return Static(In(m), map[string]interface{}{m.Binding(): v})
+func StaticIn(m Marker, v any) PredicateClause {
+	return Static(In(m), map[string]any{m.Binding(): v})
 }
 
-func StaticEq(m Marker, v interface{}) PredicateClause {
-	return Static(Eq(m), map[string]interface{}{m.Binding(): v})
+func StaticEq(m Marker, v any) PredicateClause {
+	return Static(Eq(m), map[string]any{m.Binding(): v})
 }
 
-func StaticNe(m Marker, v interface{}) PredicateClause {
-	return Static(Ne(m), map[string]interface{}{m.Binding(): v})
+func StaticNe(m Marker, v any) PredicateClause {
+	return Static(Ne(m), map[string]any{m.Binding(): v})
 }
 
-func StaticGt(m Marker, v interface{}) PredicateClause {
-	return Static(Gt(m), map[string]interface{}{m.Binding(): v})
+func StaticGt(m Marker, v any) PredicateClause {
+	return Static(Gt(m), map[string]any{m.Binding(): v})
 }
 
-func StaticGte(m Marker, v interface{}) PredicateClause {
-	return Static(Gte(m), map[string]interface{}{m.Binding(): v})
+func StaticGte(m Marker, v any) PredicateClause {
+	return Static(Gte(m), map[string]any{m.Binding(): v})
 }
 
-func StaticLt(m Marker, v interface{}) PredicateClause {
-	return Static(Lt(m), map[string]interface{}{m.Binding(): v})
+func StaticLt(m Marker, v any) PredicateClause {
+	return Static(Lt(m), map[string]any{m.Binding(): v})
 }
 
-func StaticLte(m Marker, v interface{}) PredicateClause {
-	return Static(Lte(m), map[string]interface{}{m.Binding(): v})
+func StaticLte(m Marker, v any) PredicateClause {
+	return Static(Lte(m), map[string]any{m.Binding(): v})
 }
 
 func StaticLike(m Marker, v string) PredicateClause {
-	return Static(Like(m), map[string]interface{}{m.Binding(): v})
+	return Static(Like(m), map[string]any{m.Binding(): v})
 }
 
 func IsNull(m Marker) PredicateClause {
@@ -134,7 +134,7 @@ func (npc *notPredicateClause) Clone() PredicateClause {
 	return &notPredicateClause{pc: npc.pc.Clone()}
 }
 
-func (npc *notPredicateClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
+func (npc *notPredicateClause) WriteTo(w QueryWriter, vs map[string]any) error {
 	if _, err := io.WriteString(w, "NOT ("); err != nil {
 		return err
 	}
@@ -157,12 +157,12 @@ func (svpcw *staticValuePredicateClauseWrapper) Clone() PredicateClause {
 	}
 }
 
-func (svpcw *staticValuePredicateClauseWrapper) WriteTo(w QueryWriter, _ map[string]interface{}) error {
+func (svpcw *staticValuePredicateClauseWrapper) WriteTo(w QueryWriter, _ map[string]any) error {
 	return svpcw.svpc.WriteTo(w)
 }
 
 type QuerySegment interface {
-	WriteTo(QueryWriter, map[string]interface{}) error
+	WriteTo(QueryWriter, map[string]any) error
 }
 
 type PredicateClause interface {
@@ -190,8 +190,8 @@ func signClause(m Marker, s string) *basicClause {
 	return &basicClause{m: m, fn: writeSignClause(s)}
 }
 
-func writeSignClause(s string) func(QueryWriter, interface{}, string) error {
-	return func(w QueryWriter, vv interface{}, k string) error {
+func writeSignClause(s string) func(QueryWriter, any, string) error {
+	return func(w QueryWriter, vv any, k string) error {
 		fmt.Fprintf(w, "%s %s %s", k, s, w.RedeemVariable(vv))
 		return nil
 	}
@@ -251,7 +251,7 @@ func (mc multiClause) Clone() PredicateClause {
 	return multiClause{wcs: wcs, op: mc.op}
 }
 
-func (mc multiClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
+func (mc multiClause) WriteTo(w QueryWriter, vs map[string]any) error {
 	if len(mc.wcs) == 0 {
 		io.WriteString(w, "1=0")
 		return nil
@@ -282,8 +282,8 @@ func MultiColumnIn(k string, ms ...Marker) PredicateClause {
 	return &multiColumnInClause{k: k, ms: ms}
 }
 
-func StaticMultiColumnIn(ms []Marker, vs []map[string]interface{}) PredicateClause {
-	return Static(MultiColumnIn("static", ms...), map[string]interface{}{"static": vs})
+func StaticMultiColumnIn(ms []Marker, vs []map[string]any) PredicateClause {
+	return Static(MultiColumnIn("static", ms...), map[string]any{"static": vs})
 }
 
 type multiColumnInClause struct {
@@ -295,7 +295,7 @@ func (mc *multiColumnInClause) Clone() PredicateClause {
 	return &multiColumnInClause{k: mc.k, ms: cloneMarkers(mc.ms)}
 }
 
-func (mc *multiColumnInClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
+func (mc *multiColumnInClause) WriteTo(w QueryWriter, vs map[string]any) error {
 	if _, ok := vs[mc.k]; !ok || len(mc.ms) == 0 {
 		io.WriteString(w, "1=0")
 		return nil
@@ -312,7 +312,7 @@ func (mc *multiColumnInClause) WriteTo(w QueryWriter, vs map[string]interface{})
 		w,
 		vs[mc.k],
 		fmt.Sprintf("(%s)", strings.Join(keys, ", ")),
-		func(w QueryWriter, elem interface{}) error {
+		func(w QueryWriter, elem any) error {
 			row := reflect.ValueOf(elem)
 
 			if row.Kind() != reflect.Map || row.Type().Key().Kind() != reflect.String {
@@ -341,7 +341,7 @@ func (mc *multiColumnInClause) WriteTo(w QueryWriter, vs map[string]interface{})
 	)
 }
 
-func writeInValues(w QueryWriter, vv interface{}, k string, fn func(QueryWriter, interface{}) error) error {
+func writeInValues(w QueryWriter, vv any, k string, fn func(QueryWriter, any) error) error {
 	v, err := reflectSlice(vv)
 
 	if err != nil {
@@ -369,8 +369,8 @@ func writeInValues(w QueryWriter, vv interface{}, k string, fn func(QueryWriter,
 	return nil
 }
 
-func writeInClause(w QueryWriter, vv interface{}, k string) error {
-	return writeInValues(w, vv, k, func(w QueryWriter, elem interface{}) error {
+func writeInClause(w QueryWriter, vv any, k string) error {
+	return writeInValues(w, vv, k, func(w QueryWriter, elem any) error {
 		io.WriteString(w, w.RedeemVariable(elem))
 		return nil
 	})
@@ -394,7 +394,7 @@ func (e *Exists) Clone() PredicateClause {
 	return &Exists{Table: e.Table, WhereClause: e.WhereClause}
 }
 
-func (e *Exists) WriteTo(w QueryWriter, vs map[string]interface{}) error {
+func (e *Exists) WriteTo(w QueryWriter, vs map[string]any) error {
 	io.WriteString(w, "EXISTS(SELECT 1 FROM ")
 	io.WriteString(w, e.Table)
 
@@ -417,14 +417,14 @@ func (e *Exists) WriteTo(w QueryWriter, vs map[string]interface{}) error {
 
 type basicClause struct {
 	m  Marker
-	fn func(QueryWriter, interface{}, string) error
+	fn func(QueryWriter, any, string) error
 }
 
 func (bc *basicClause) Clone() PredicateClause {
 	return &basicClause{m: bc.m.Clone(), fn: bc.fn}
 }
 
-func (bc *basicClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
+func (bc *basicClause) WriteTo(w QueryWriter, vs map[string]any) error {
 	b := bc.m.Binding()
 	vv, ok := vs[b]
 
@@ -435,7 +435,7 @@ func (bc *basicClause) WriteTo(w QueryWriter, vs map[string]interface{}) error {
 	return bc.fn(w, vv, bc.m.ToSQL())
 }
 
-func reflectSliceBasic(v interface{}) (reflect.Value, error) {
+func reflectSliceBasic(v any) (reflect.Value, error) {
 	rv := reflect.ValueOf(v)
 
 	if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
