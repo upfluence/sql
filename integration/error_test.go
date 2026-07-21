@@ -53,7 +53,8 @@ func TestCanceled(t *testing.T) {
 
 		done()
 
-		for cursor.Next() {} // wait for error/exhaust
+		for cursor.Next() { // wait for error/exhaust
+		}
 
 		assert.ErrorIs(t, cursor.Err(), context.Canceled)
 	})
