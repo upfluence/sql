@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/upfluence/sql"
 	"github.com/upfluence/sql/sqltest"
@@ -40,6 +41,17 @@ func TestCanceled(t *testing.T) {
 		err := db.QueryRow(ctx, "SELECT 1").Scan()
 
 		assert.ErrorIs(t, err, context.Canceled)
+
+		ctx, done = context.WithCancel(context.Background())
+		cursor, err := db.Query(ctx, "SELECT 1")
+
+		require.NoError(t, err)
+
+		done()
+		cursor.Next()
+
+		assert.ErrorIs(t, cursor.Err(), context.Canceled)
+
 	})
 }
 
