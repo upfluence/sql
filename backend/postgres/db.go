@@ -116,6 +116,10 @@ func (c *cursor) Scan(vs ...any) error {
 	return wrapErr(c.Cursor.Scan(vs...))
 }
 
+func (c *cursor) Err() error {
+	return wrapErr(c.Cursor.Err())
+}
+
 func IsPostgresDB(d sql.DB) bool {
 	_, ok := d.(*db)
 	return ok
