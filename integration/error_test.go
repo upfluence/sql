@@ -51,7 +51,6 @@ func TestCanceled(t *testing.T) {
 		cursor.Next()
 
 		assert.ErrorIs(t, cursor.Err(), context.Canceled)
-
 	})
 }
 
