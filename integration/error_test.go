@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/upfluence/sql"
 	"github.com/upfluence/sql/sqltest"
@@ -40,6 +41,22 @@ func TestCanceled(t *testing.T) {
 		err := db.QueryRow(ctx, "SELECT 1").Scan()
 
 		assert.ErrorIs(t, err, context.Canceled)
+
+		ctx, done = context.WithCancel(context.Background())
+		cursor, err := db.Query(ctx, `
+			WITH RECURSIVE numbers(n) AS (
+				SELECT 1 UNION ALL SELECT n + 1 FROM numbers WHERE n < 5000
+			) SELECT n FROM numbers;
+		`) // postgres will cache the first few results in the first contact, we need more content
+
+		require.NoError(t, err)
+
+		done()
+
+		for cursor.Next() { // wait for error/exhaust
+		}
+
+		assert.ErrorIs(t, cursor.Err(), context.Canceled)
 	})
 }
 
