@@ -19,9 +19,10 @@ var (
 	defaultOptions = &builder{
 		parser: sqlparser.DefaultSQLParser(),
 		options: []DBOption{
-			WithMaxOpenConns(128),
-			WithMaxIdleConns(16),
-			WithConnMaxIdleTime(2 * time.Minute),
+			WithMaxOpenConns(32),
+			WithMaxIdleConns(4),
+			WithConnMaxIdleTime(time.Minute),
+			WithConnMaxLifetime(30 * time.Minute),
 		},
 	}
 
