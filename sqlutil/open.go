@@ -190,11 +190,8 @@ func (dbs dbs) buildDB() sql.DB {
 }
 
 func (b *builder) buildDB() (sql.DB, error) {
-	switch len(b.dbs) {
-	case 0:
+	if len(b.dbs) == 0 {
 		return nil, ErrNoDBProvided
-	case 1:
-		return b.dbs[0].buildDB(b.parser)
 	}
 
 	var masters, slaves []sql.DB
