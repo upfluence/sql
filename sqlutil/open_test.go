@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/lib/pq"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/upfluence/sql/backend/postgres"
 )
@@ -34,4 +36,20 @@ func TestRegisterDriverWrapper(t *testing.T) {
 	if !postgres.IsPostgresDB(db) {
 		t.Errorf("invalid wrapping of the DB")
 	}
+}
+
+func TestDatabaseOptionsOverrideDefaults(t *testing.T) {
+	var stats sql.DBStats
+
+	_, err := Open(
+		WithMaster(
+			"postgres",
+			"foobar",
+			WithMaxOpenConns(16),
+			WithStdDBCallback(func(db *sql.DB) { stats = db.Stats() }),
+		),
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, 16, stats.MaxOpenConnections)
 }

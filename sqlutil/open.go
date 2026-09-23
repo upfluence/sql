@@ -19,10 +19,10 @@ var (
 	defaultOptions = &builder{
 		parser: sqlparser.DefaultSQLParser(),
 		options: []DBOption{
-			WithMaxOpenConns(32),
-			WithMaxIdleConns(4),
-			WithConnMaxIdleTime(time.Minute),
-			WithConnMaxLifetime(30 * time.Minute),
+			withDefaultMaxOpenConns(32),
+			withDefaultMaxIdleConns(4),
+			withDefaultConnMaxIdleTime(time.Minute),
+			withDefaultConnMaxLifetime(30 * time.Minute),
 		},
 	}
 
@@ -122,6 +122,38 @@ func WithConnMaxLifetime(v time.Duration) DBOption {
 	return func(i *dbInput) {
 		v := v
 		i.maxLifetime = &v
+	}
+}
+
+func withDefaultMaxIdleConns(v int) DBOption {
+	return func(i *dbInput) {
+		if i.maxIdleConns == nil {
+			WithMaxIdleConns(v)(i)
+		}
+	}
+}
+
+func withDefaultMaxOpenConns(v int) DBOption {
+	return func(i *dbInput) {
+		if i.maxOpenConns == nil {
+			WithMaxOpenConns(v)(i)
+		}
+	}
+}
+
+func withDefaultConnMaxIdleTime(v time.Duration) DBOption {
+	return func(i *dbInput) {
+		if i.maxIdleTime == nil {
+			WithConnMaxIdleTime(v)(i)
+		}
+	}
+}
+
+func withDefaultConnMaxLifetime(v time.Duration) DBOption {
+	return func(i *dbInput) {
+		if i.maxLifetime == nil {
+			WithConnMaxLifetime(v)(i)
+		}
 	}
 }
 
