@@ -216,7 +216,7 @@ func (is InsertStatement) buildQueries(vvs []map[string]any, qvs map[string]any)
 	case 0:
 	case 1:
 		if !is.isQuery {
-			qw.vs = append(qw.vs, is.Returning)
+			qw.vs = append(qw.vs, rs[0])
 			break
 		}
 

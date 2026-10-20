@@ -98,6 +98,17 @@ func TestInsertQuery(t *testing.T) {
 			args: []any{1},
 		},
 		{
+			name: "with single returnings",
+			is: InsertStatement{
+				Table:      "foo",
+				Fields:     []Marker{Column("buz")},
+				Returnings: []*sql.Returning{{Field: "bar"}},
+			},
+			vs:   map[string]any{"buz": 1},
+			stmt: "INSERT INTO foo(buz) VALUES ($1)",
+			args: []any{1, &sql.Returning{Field: "bar"}},
+		},
+		{
 			name: "with returnings ",
 			is: InsertStatement{
 				Table:  "foo",
