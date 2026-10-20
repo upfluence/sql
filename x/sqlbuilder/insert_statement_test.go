@@ -132,3 +132,64 @@ func TestInsertQuery(t *testing.T) {
 		})
 	}
 }
+
+func TestInsertMultiQuery(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+
+		haveStmt InsertStatement
+		haveVVs  []map[string]any
+
+		wantStmt string
+		wantArgs []any
+		wantErr  error
+	}{
+		{
+			name: "multiple rows",
+			haveStmt: InsertStatement{
+				Table:  "foo",
+				Fields: []Marker{Column("biz"), Column("buz")},
+			},
+			haveVVs: []map[string]any{
+				{"biz": 1, "buz": 2},
+				{"biz": 3, "buz": 4},
+			},
+			wantStmt: "INSERT INTO foo(biz, buz) VALUES ($1, $2), ($3, $4)",
+			wantArgs: []any{1, 2, 3, 4},
+		},
+		{
+			name: "multiple rows with returning",
+			haveStmt: InsertStatement{
+				Table:     "foo",
+				Fields:    []Marker{Column("biz")},
+				Returning: &sql.Returning{Field: "id"},
+			},
+			haveVVs: []map[string]any{
+				{"biz": 1},
+				{"biz": 2},
+			},
+			wantStmt: "INSERT INTO foo(biz) VALUES ($1), ($2)",
+			wantArgs: []any{1, 2, &sql.Returning{Field: "id"}},
+		},
+		{
+			name: "missing key in a row",
+			haveStmt: InsertStatement{
+				Table:  "foo",
+				Fields: []Marker{Column("biz")},
+			},
+			haveVVs: []map[string]any{
+				{"biz": 1},
+				{"buz": 2},
+			},
+			wantErr: ErrMissingKey{Key: "biz"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, args, err := tt.haveStmt.buildQueries(tt.haveVVs, nil)
+
+			assert.Equal(t, tt.wantErr, err)
+			assert.Equal(t, tt.wantStmt, stmt)
+			assert.Equal(t, tt.wantArgs, args)
+		})
+	}
+}

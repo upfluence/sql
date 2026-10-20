@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 
+	"github.com/upfluence/errors"
+
 	"github.com/upfluence/sql"
 )
 
@@ -81,6 +83,37 @@ func (ie *InsertExecer) MultiExec(ctx context.Context, vvs []map[string]any, qvs
 	}
 
 	return ie.qb.Exec(ctx, stmt, vs...)
+}
+
+// MultiQuery inserts all the given rows in a single statement. The returned
+// cursor yields one row per inserted row, holding the Returning fields of the
+// statement, in the order they are declared. Rows skipped by an ON CONFLICT
+// clause are not part of it. The cursor must be drained or closed by the
+// caller; without any Returning field it yields no row.
+func (ie *InsertExecer) MultiQuery(ctx context.Context, vvs []map[string]any, qvs map[string]any) (Cursor, error) {
+	stmt := ie.Statement
+	stmt.isQuery = true
+
+	sstmt, vs, err := stmt.buildQueries(vvs, qvs)
+
+	if err != nil {
+		return nil, err
+	}
+
+	rs := stmt.returnings()
+	ks := make([]string, len(rs))
+
+	for i, r := range rs {
+		ks[i] = r.Field
+	}
+
+	cur, err := ie.qb.Query(ctx, sstmt, vs...)
+
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return &cursor{sc: &scanner{sc: cur, ks: ks}, Cursor: cur}, nil
 }
 
 type UpdateExecer struct {
