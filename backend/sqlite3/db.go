@@ -91,6 +91,8 @@ func (c *cursor) Scan(vs ...any) error {
 	return wrapErr(c.Cursor.Scan(vs...))
 }
 
+func (c *cursor) Err() error { return wrapErr(c.Cursor.Err()) }
+
 type errScanner struct {
 	error
 }
