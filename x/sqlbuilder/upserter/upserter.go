@@ -33,6 +33,13 @@ type Statement struct {
 
 	Returning *sql.Returning
 
+	// PredicateClause restricts the update of an already existing row: the
+	// row is only updated if the predicate is satisfied. Rows that do not
+	// exist yet are still inserted. Columns have to be qualified with the
+	// table, using sqlbuilder.ColumnWithTable, as the unqualified ones are
+	// ambiguous in an INSERT ... ON CONFLICT.
+	PredicateClause sqlbuilder.PredicateClause
+
 	Mode Mode
 
 	QueryConstrained bool

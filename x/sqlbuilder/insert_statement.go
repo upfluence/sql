@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/upfluence/errors"
+
 	"github.com/upfluence/sql"
 )
 
@@ -88,6 +90,12 @@ var Nothing nothing
 type OnConflictClause struct {
 	Target *OnConflictTarget
 	Action OnConflictAction
+
+	// Where restricts the conflicting rows the Update action is applied to.
+	// It is ignored for the Nothing action. Columns have to be qualified with
+	// the table, using ColumnWithTable, as an unqualified one is ambiguous
+	// with the EXCLUDED row.
+	Where PredicateClause
 }
 
 func (occ *OnConflictClause) Clone() *OnConflictClause {
@@ -98,6 +106,7 @@ func (occ *OnConflictClause) Clone() *OnConflictClause {
 	return &OnConflictClause{
 		Target: occ.Target.Clone(),
 		Action: occ.Action.Clone(),
+		Where:  clonePredicateClause(occ.Where),
 	}
 }
 
@@ -209,6 +218,14 @@ func (is InsertStatement) buildQueries(vvs []map[string]any, qvs map[string]any)
 
 		if err := oc.Action.WriteTo(&qw, qvs); err != nil {
 			return "", nil, err
+		}
+
+		if _, ok := oc.Action.(Update); ok && oc.Where != nil {
+			qw.WriteString(" WHERE ")
+
+			if err := oc.Where.WriteTo(&qw, qvs); err != nil {
+				return "", nil, errors.WithStack(err)
+			}
 		}
 	}
 
