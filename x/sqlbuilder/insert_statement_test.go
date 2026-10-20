@@ -86,6 +86,25 @@ func TestInsertQuery(t *testing.T) {
 			args: []any{1, 2},
 		},
 		{
+			name: "with on conflict update excluded",
+			is: InsertStatement{
+				Table:  "foo",
+				Fields: []Marker{Column("buz"), Column("bar"), ColumnWithTable("fiz", "foo", "fiz")},
+				OnConfict: &OnConflictClause{
+					Target: &OnConflictTarget{
+						Fields: []Marker{Column("buz")},
+					},
+					Action: Update{
+						Excluded(Column("bar")),
+						Excluded(ColumnWithTable("fiz", "foo", "fiz")),
+					},
+				},
+			},
+			vs:   map[string]any{"buz": 1, "bar": 2, "fiz": 3},
+			stmt: "INSERT INTO foo(buz, bar, fiz) VALUES ($1, $2, $3) ON CONFLICT (buz) DO UPDATE SET bar = EXCLUDED.bar, fiz = EXCLUDED.fiz",
+			args: []any{1, 2, 3},
+		},
+		{
 			name: "with returning + isQuery",
 			is: InsertStatement{
 				Table:     "foo",

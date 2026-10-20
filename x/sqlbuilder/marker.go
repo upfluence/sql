@@ -53,6 +53,32 @@ func ColumnWithTable(b, t, c string) Marker {
 	return columnWithTable{binding: b, table: t, column: c}
 }
 
+// Excluded makes the DO UPDATE clause of an ON CONFLICT reference the value the
+// row was proposed for insertion with, instead of binding a variable, so that
+// every row of a multi row insert updates with its own value:
+//
+//	ON CONFLICT (id) DO UPDATE SET bar = EXCLUDED.bar
+//
+// Markers writing their own SQL are returned as they are.
+func Excluded(m Marker) Marker {
+	if _, ok := m.(QuerySegment); ok {
+		return m
+	}
+
+	return excluded{Marker: m}
+}
+
+type excluded struct{ Marker }
+
+func (e excluded) ColumnName() string { return ColumnName(e.Marker) }
+func (e excluded) Clone() Marker      { return excluded{Marker: e.Marker.Clone()} }
+
+func (e excluded) WriteTo(qw QueryWriter, _ map[string]any) error {
+	_, err := fmt.Fprintf(qw, "EXCLUDED.%s", ColumnName(e.Marker))
+
+	return errors.Wrap(err, "cant write the excluded column")
+}
+
 func cloneMarkers(ms []Marker) []Marker {
 	if len(ms) == 0 {
 		return nil
