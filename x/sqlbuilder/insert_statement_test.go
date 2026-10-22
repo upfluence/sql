@@ -105,6 +105,39 @@ func TestInsertQuery(t *testing.T) {
 			args: []any{1, 2, 3},
 		},
 		{
+			name: "with on conflict update and where",
+			is: InsertStatement{
+				Table:  "foo",
+				Fields: []Marker{Column("buz")},
+				OnConfict: &OnConflictClause{
+					Target: &OnConflictTarget{
+						Fields: []Marker{Column("buz")},
+					},
+					Action: Update{
+						Column("bar"),
+					},
+					Where: StaticEq(Column("biz"), "fiz"),
+				},
+			},
+			vs:   map[string]any{"buz": 1, "bar": 2},
+			stmt: "INSERT INTO foo(buz) VALUES ($1) ON CONFLICT (buz) DO UPDATE SET bar = $2 WHERE biz = $3",
+			args: []any{1, 2, "fiz"},
+		},
+		{
+			name: "with on conflict nothing ignores where",
+			is: InsertStatement{
+				Table:  "foo",
+				Fields: []Marker{Column("buz")},
+				OnConfict: &OnConflictClause{
+					Action: Nothing,
+					Where:  StaticEq(Column("biz"), "fiz"),
+				},
+			},
+			vs:   map[string]any{"buz": 1},
+			stmt: "INSERT INTO foo(buz) VALUES ($1) ON CONFLICT DO NOTHING",
+			args: []any{1},
+		},
+		{
 			name: "with returning + isQuery",
 			is: InsertStatement{
 				Table:     "foo",

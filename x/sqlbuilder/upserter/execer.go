@@ -67,6 +67,7 @@ func newExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 							Fields: stmt.QueryValues,
 						},
 						Action: action,
+						Where:  stmt.PredicateClause,
 					},
 					Returning: stmt.Returning,
 				},
@@ -110,6 +111,10 @@ func newExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 
 			for i, v := range stmt.QueryValues {
 				clauses[i] = sqlbuilder.Eq(v)
+			}
+
+			if stmt.PredicateClause != nil {
+				clauses = append(clauses, stmt.PredicateClause)
 			}
 
 			return qb.PrepareUpdate(
@@ -194,10 +199,13 @@ func newExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 		e.is.Fields[len(stmt.QueryValues)+len(stmt.SetValues)+i] = iv
 	}
 
-	clause := sqlbuilder.And(clauses...)
+	e.ss.WhereClause = sqlbuilder.And(clauses...)
 
-	e.ss.WhereClause = clause
-	e.us.WhereClause = clause
+	if stmt.PredicateClause != nil {
+		clauses = append(clauses, stmt.PredicateClause)
+	}
+
+	e.us.WhereClause = sqlbuilder.And(clauses...)
 
 	return &e
 }

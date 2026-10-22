@@ -7,6 +7,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/upfluence/log"
 
 	"github.com/upfluence/sql"
@@ -288,6 +289,120 @@ func TestUpserterInsertValue(t *testing.T) {
 			if z != "fuz" {
 				t.Errorf("z = %q  [ want \"fuz\" ]", z)
 			}
+		}
+	})
+}
+
+func TestUpserterPredicateClause(t *testing.T) {
+	sqltest.NewTestCase(
+		sqltest.WithMigratorFunc(
+			buildMigrator(
+				map[string]string{
+					"1_initial.up.sql":   "CREATE TABLE foo (x TEXT, y TEXT, z TEXT)",
+					"1_initial.down.sql": "DROP TABLE foo",
+					"2_initial.up.sql":   "CREATE UNIQUE INDEX foo_pk ON foo(x)",
+					"2_initial.down.sql": "DROP INDEX foo_pk",
+				},
+			),
+		),
+	).Run(t, func(t *testing.T, db sql.DB) {
+		ctx := context.Background()
+		u := Upserter{DB: db}
+
+		for _, tt := range []struct {
+			name string
+
+			haveQueryConstrained bool
+			haveExisting         bool
+			havePredicate        sqlbuilder.PredicateClause
+
+			wantAffected int64
+			wantZ        string
+		}{
+			{
+				name:          "no existing row, failing predicate still inserts",
+				havePredicate: sqlbuilder.StaticEq(sqlbuilder.ColumnWithTable("y", "foo", "y"), "nope"),
+				wantAffected:  1,
+				wantZ:         "new",
+			},
+			{
+				name:                 "no existing row, failing predicate still inserts, query constrained",
+				haveQueryConstrained: true,
+				havePredicate:        sqlbuilder.StaticEq(sqlbuilder.ColumnWithTable("y", "foo", "y"), "nope"),
+				wantAffected:         1,
+				wantZ:                "new",
+			},
+			{
+				name:          "existing row, valid predicate updates",
+				haveExisting:  true,
+				havePredicate: sqlbuilder.StaticEq(sqlbuilder.ColumnWithTable("y", "foo", "y"), "bar"),
+				wantAffected:  1,
+				wantZ:         "new",
+			},
+			{
+				name:                 "existing row, valid predicate updates, query constrained",
+				haveQueryConstrained: true,
+				haveExisting:         true,
+				havePredicate:        sqlbuilder.StaticEq(sqlbuilder.ColumnWithTable("y", "foo", "y"), "bar"),
+				wantAffected:         1,
+				wantZ:                "new",
+			},
+			{
+				name:          "existing row, failing predicate does not update",
+				haveExisting:  true,
+				havePredicate: sqlbuilder.StaticEq(sqlbuilder.ColumnWithTable("y", "foo", "y"), "nope"),
+				wantAffected:  0,
+				wantZ:         "old",
+			},
+			{
+				name:                 "existing row, failing predicate does not update, query constrained",
+				haveQueryConstrained: true,
+				haveExisting:         true,
+				havePredicate:        sqlbuilder.StaticEq(sqlbuilder.ColumnWithTable("y", "foo", "y"), "nope"),
+				wantAffected:         0,
+				wantZ:                "old",
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				_, err := db.Exec(ctx, "DELETE FROM foo")
+				require.NoError(t, err)
+
+				if tt.haveExisting {
+					_, err := db.Exec(
+						ctx,
+						"INSERT INTO foo(x, y, z) VALUES ($1, $2, $3)",
+						"foo",
+						"bar",
+						"old",
+					)
+					require.NoError(t, err)
+				}
+
+				res, err := u.PrepareUpsert(
+					UpsertStatement{
+						Table:            "foo",
+						QueryValues:      []sqlbuilder.Marker{sqlbuilder.Column("x")},
+						SetValues:        []sqlbuilder.Marker{sqlbuilder.Column("z")},
+						InsertValues:     []sqlbuilder.Marker{sqlbuilder.Column("y")},
+						PredicateClause:  tt.havePredicate,
+						QueryConstrained: tt.haveQueryConstrained,
+					},
+				).Exec(
+					ctx,
+					map[string]any{"x": "foo", "y": "bar", "z": "new"},
+				)
+
+				require.NoError(t, err)
+				assertResultAffected(t, res, tt.wantAffected)
+
+				var z string
+
+				require.NoError(
+					t,
+					db.QueryRow(ctx, "SELECT z FROM foo WHERE x = $1", "foo").Scan(&z),
+				)
+				assert.Equal(t, tt.wantZ, z)
+			})
 		}
 	})
 }
