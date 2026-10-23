@@ -37,7 +37,11 @@ type tx struct {
 
 	q  *queryer
 	tx *stdsql.Tx
+
+	driver string
 }
+
+func (tx *tx) Driver() string { return tx.driver }
 
 func (tx *tx) Commit() error {
 	select {
@@ -160,9 +164,10 @@ func (d *db) BeginTx(ctx context.Context, opts sql.TxOptions) (sql.Tx, error) {
 	}
 
 	return &tx{
-		ctx: ctx,
-		ch:  make(chan struct{}, 1),
-		q:   &queryer{t},
-		tx:  t,
+		ctx:    ctx,
+		ch:     make(chan struct{}, 1),
+		q:      &queryer{t},
+		tx:     t,
+		driver: d.driver,
 	}, nil
 }

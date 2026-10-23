@@ -42,6 +42,7 @@ type tx struct {
 
 func (tx *tx) Commit() error   { return wrapErr(tx.tx.Commit()) }
 func (tx *tx) Rollback() error { return wrapErr(tx.tx.Rollback()) }
+func (tx *tx) Driver() string  { return sql.DriverOf(tx.tx) }
 
 type queryer struct {
 	q sql.Queryer

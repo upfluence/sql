@@ -57,6 +57,7 @@ type Tx struct {
 
 func (tx *Tx) Commit() error   { return tx.CommitErr }
 func (tx *Tx) Rollback() error { return tx.RollbackErr }
+func (tx *Tx) Driver() string  { return "sqltest" }
 
 func (db *DB) Driver() string { return "sqltest" }
 

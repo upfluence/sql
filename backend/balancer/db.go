@@ -120,6 +120,8 @@ type tx struct {
 	cfn CloseFunc
 }
 
+func (tx *tx) Driver() string { return sql.DriverOf(tx.Tx) }
+
 func (tx *tx) Commit() error {
 	err := tx.Tx.Commit()
 

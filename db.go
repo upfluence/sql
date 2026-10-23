@@ -40,6 +40,16 @@ type DB interface {
 	Driver() string
 }
 
+// DriverOf returns the driver of q, the DBs and the transactions they
+// begin expose it. It returns an empty string when q does not.
+func DriverOf(q Queryer) string {
+	if d, ok := q.(interface{ Driver() string }); ok {
+		return d.Driver()
+	}
+
+	return ""
+}
+
 type TxOptions struct {
 	Isolation IsolationLevel
 }
