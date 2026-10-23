@@ -176,7 +176,7 @@ func TestInsertQuery(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			stmt, args, err := tt.is.Clone().buildQuery(tt.vs)
+			stmt, args, err := tt.is.Clone().buildQuery("", tt.vs)
 
 			assert.Equal(t, tt.err, err)
 			assert.Equal(t, tt.stmt, stmt)
@@ -237,7 +237,7 @@ func TestInsertMultiQuery(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			stmt, args, err := tt.haveStmt.buildQueries(tt.haveVVs, nil)
+			stmt, args, err := tt.haveStmt.buildQueries("", tt.haveVVs, nil)
 
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, tt.wantStmt, stmt)
