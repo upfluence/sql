@@ -94,115 +94,127 @@ func newExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 	}
 
 	if stmt.QueryConstrained {
-		qb := sqlbuilder.QueryBuilder{Queryer: te.queryer()}
-
-		switch stmt.mode() {
-		case Upsert:
-			var action sqlbuilder.OnConflictAction = sqlbuilder.Nothing
-
-			if len(stmt.SetValues) > 0 {
-				action = sqlbuilder.Update(stmt.SetValues)
-			}
-
-			e := qb.PrepareInsert(
-				sqlbuilder.InsertStatement{
-					Table:  stmt.Table,
-					Fields: insertFields(stmt),
-					OnConfict: &sqlbuilder.OnConflictClause{
-						Target: &sqlbuilder.OnConflictTarget{
-							Fields: stmt.QueryValues,
-						},
-						Action: action,
-						Where:  stmt.PredicateClause,
-					},
-					Returning: stmt.Returning,
-				},
-			)
-
-			var re sqlbuilder.Execer = &sqlbuilder.RetryExecer{
-				Execer: e,
-				ShouldRetry: func(err error) bool {
-					var ce sql.ConstraintError
-
-					if !errors.As(err, &ce) {
-						return false
-					}
-
-					return ce.Type == sql.PrimaryKey || ce.Type == sql.Unique
-				},
-				RetryCount: -1,
-			}
-
-			// the predicate is bound to the values of a single row, which the
-			// ON CONFLICT clause of a multi rows INSERT cannot hold
-			if stmt.Returning != nil || stmt.PredicateClause != nil {
-				return re
-			}
-
-			var multiAction sqlbuilder.OnConflictAction = sqlbuilder.Nothing
-
-			if len(stmt.SetValues) > 0 {
-				multiAction = excludedUpdate(stmt.SetValues)
-			}
-
-			return &multiExecer{
-				Execer: re,
-				ie: qb.PrepareInsert(
-					sqlbuilder.InsertStatement{
-						Table:  stmt.Table,
-						Fields: insertFields(stmt),
-						OnConfict: &sqlbuilder.OnConflictClause{
-							Target: &sqlbuilder.OnConflictTarget{
-								Fields: stmt.QueryValues,
-							},
-							Action: multiAction,
-						},
-					},
-				),
-			}
-		case Insert:
-			ie := qb.PrepareInsert(
-				sqlbuilder.InsertStatement{
-					Table:  stmt.Table,
-					Fields: insertFields(stmt),
-					OnConfict: &sqlbuilder.OnConflictClause{
-						Target: &sqlbuilder.OnConflictTarget{
-							Fields: stmt.QueryValues,
-						},
-						Action: sqlbuilder.Nothing,
-					},
-					Returning: stmt.Returning,
-				},
-			)
-
-			if stmt.Returning != nil {
-				return ie
-			}
-
-			return &multiExecer{Execer: ie, ie: ie}
-		case Update:
-			clauses := make([]sqlbuilder.PredicateClause, len(stmt.QueryValues))
-
-			for i, v := range stmt.QueryValues {
-				clauses[i] = sqlbuilder.Eq(v)
-			}
-
-			if stmt.PredicateClause != nil {
-				clauses = append(clauses, stmt.PredicateClause)
-			}
-
-			return qb.PrepareUpdate(
-				sqlbuilder.UpdateStatement{
-					Table:       stmt.Table,
-					Fields:      stmt.SetValues,
-					WhereClause: sqlbuilder.And(clauses...),
-				},
-			)
-		default:
-			return errExecer{fmt.Errorf("invalid mode: %d", stmt.Mode)}
-		}
+		return newQueryConstrainedExecer(te.queryer(), stmt)
 	}
 
+	return newTxExecer(te, stmt)
+}
+
+// newQueryConstrainedExecer relies on the key constraint of the query values
+// to write the row with a single statement.
+func newQueryConstrainedExecer(q sql.Queryer, stmt Statement) sqlbuilder.Execer {
+	qb := sqlbuilder.QueryBuilder{Queryer: q}
+
+	switch stmt.mode() {
+	case Upsert:
+		var action sqlbuilder.OnConflictAction = sqlbuilder.Nothing
+
+		if len(stmt.SetValues) > 0 {
+			action = sqlbuilder.Update(stmt.SetValues)
+		}
+
+		e := qb.PrepareInsert(
+			sqlbuilder.InsertStatement{
+				Table:  stmt.Table,
+				Fields: insertFields(stmt),
+				OnConfict: &sqlbuilder.OnConflictClause{
+					Target: &sqlbuilder.OnConflictTarget{
+						Fields: stmt.QueryValues,
+					},
+					Action: action,
+					Where:  stmt.PredicateClause,
+				},
+				Returning: stmt.Returning,
+			},
+		)
+
+		var re sqlbuilder.Execer = &sqlbuilder.RetryExecer{
+			Execer: e,
+			ShouldRetry: func(err error) bool {
+				var ce sql.ConstraintError
+
+				if !errors.As(err, &ce) {
+					return false
+				}
+
+				return ce.Type == sql.PrimaryKey || ce.Type == sql.Unique
+			},
+			RetryCount: -1,
+		}
+
+		// the predicate is bound to the values of a single row, which the
+		// ON CONFLICT clause of a multi rows INSERT cannot hold
+		if stmt.Returning != nil || stmt.PredicateClause != nil {
+			return re
+		}
+
+		var multiAction sqlbuilder.OnConflictAction = sqlbuilder.Nothing
+
+		if len(stmt.SetValues) > 0 {
+			multiAction = excludedUpdate(stmt.SetValues)
+		}
+
+		return &multiExecer{
+			Execer: re,
+			ie: qb.PrepareInsert(
+				sqlbuilder.InsertStatement{
+					Table:  stmt.Table,
+					Fields: insertFields(stmt),
+					OnConfict: &sqlbuilder.OnConflictClause{
+						Target: &sqlbuilder.OnConflictTarget{
+							Fields: stmt.QueryValues,
+						},
+						Action: multiAction,
+					},
+				},
+			),
+		}
+	case Insert:
+		ie := qb.PrepareInsert(
+			sqlbuilder.InsertStatement{
+				Table:  stmt.Table,
+				Fields: insertFields(stmt),
+				OnConfict: &sqlbuilder.OnConflictClause{
+					Target: &sqlbuilder.OnConflictTarget{
+						Fields: stmt.QueryValues,
+					},
+					Action: sqlbuilder.Nothing,
+				},
+				Returning: stmt.Returning,
+			},
+		)
+
+		if stmt.Returning != nil {
+			return ie
+		}
+
+		return &multiExecer{Execer: ie, ie: ie}
+	case Update:
+		clauses := make([]sqlbuilder.PredicateClause, len(stmt.QueryValues))
+
+		for i, v := range stmt.QueryValues {
+			clauses[i] = sqlbuilder.Eq(v)
+		}
+
+		if stmt.PredicateClause != nil {
+			clauses = append(clauses, stmt.PredicateClause)
+		}
+
+		return qb.PrepareUpdate(
+			sqlbuilder.UpdateStatement{
+				Table:       stmt.Table,
+				Fields:      stmt.SetValues,
+				WhereClause: sqlbuilder.And(clauses...),
+			},
+		)
+	default:
+		return errExecer{fmt.Errorf("invalid mode: %d", stmt.Mode)}
+	}
+}
+
+// newTxExecer looks the row up and writes it accordingly within a
+// transaction, as the table holds no key constraint on the query values.
+func newTxExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 	var selectClauses = []sqlbuilder.Marker{oneMarker}
 
 	for _, m := range stmt.SetValues {
