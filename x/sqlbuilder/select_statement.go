@@ -51,10 +51,11 @@ func writeSelectClause(c Marker, qw *queryWriter, vs map[string]any) error {
 	return nil
 }
 
-func (ss SelectStatement) buildQuery(vs map[string]any) (string, []any, []string, error) {
+func (ss SelectStatement) buildQuery(driver string, vs map[string]any) (string, []any, []string, error) {
 	var (
-		qw       queryWriter
 		bindings []string
+
+		qw = queryWriter{driver: driver}
 	)
 
 	if len(ss.SelectClauses) == 0 {

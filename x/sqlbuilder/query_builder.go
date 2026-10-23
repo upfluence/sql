@@ -15,6 +15,8 @@ type QueryBuilder struct {
 	sql.Queryer
 }
 
+func (qb *QueryBuilder) driver() string { return sql.DriverOf(qb.Queryer) }
+
 func (qb *QueryBuilder) PrepareSelect(ss SelectStatement) *SelectQueryer {
 	return &SelectQueryer{QueryBuilder: qb, Statement: ss}
 }
@@ -44,7 +46,7 @@ func (qb *QueryBuilder) PrepareDelete(ds DeleteStatement) *DeleteExecer {
 }
 
 type statement interface {
-	buildQuery(map[string]any) (string, []any, error)
+	buildQuery(string, map[string]any) (string, []any, error)
 }
 
 type InsertExecer struct {
@@ -66,7 +68,7 @@ func (ie *InsertExecer) QueryRow(ctx context.Context, qvs map[string]any) sql.Sc
 	stmt := ie.Statement
 	stmt.isQuery = true
 
-	sstmt, vs, err := stmt.buildQuery(qvs)
+	sstmt, vs, err := stmt.buildQuery(ie.qb.driver(), qvs)
 
 	if err != nil {
 		return errScanner{error: err}
@@ -76,7 +78,7 @@ func (ie *InsertExecer) QueryRow(ctx context.Context, qvs map[string]any) sql.Sc
 }
 
 func (ie *InsertExecer) MultiExec(ctx context.Context, vvs []map[string]any, qvs map[string]any) (sql.Result, error) {
-	stmt, vs, err := ie.Statement.buildQueries(vvs, qvs)
+	stmt, vs, err := ie.Statement.buildQueries(ie.qb.driver(), vvs, qvs)
 
 	if err != nil {
 		return nil, err
@@ -94,7 +96,7 @@ func (ie *InsertExecer) MultiQuery(ctx context.Context, vvs []map[string]any, qv
 	stmt := ie.Statement
 	stmt.isQuery = true
 
-	sstmt, vs, err := stmt.buildQueries(vvs, qvs)
+	sstmt, vs, err := stmt.buildQueries(ie.qb.driver(), vvs, qvs)
 
 	if err != nil {
 		return nil, err
@@ -136,7 +138,7 @@ type SelectQueryer struct {
 }
 
 func (sq *SelectQueryer) Query(ctx context.Context, qvs map[string]any) (Cursor, error) {
-	stmt, vs, ks, err := sq.Statement.buildQuery(qvs)
+	stmt, vs, ks, err := sq.Statement.buildQuery(sq.QueryBuilder.driver(), qvs)
 
 	if err != nil {
 		return nil, err
@@ -152,7 +154,7 @@ func (sq *SelectQueryer) Query(ctx context.Context, qvs map[string]any) (Cursor,
 }
 
 func (sq *SelectQueryer) QueryRow(ctx context.Context, qvs map[string]any) Scanner {
-	stmt, vs, ks, err := sq.Statement.buildQuery(qvs)
+	stmt, vs, ks, err := sq.Statement.buildQuery(sq.QueryBuilder.driver(), qvs)
 
 	if err != nil {
 		return ErrScanner{Err: err}
@@ -165,6 +167,10 @@ type QueryWriter interface {
 	io.Writer
 
 	RedeemVariable(any) string
+
+	// Driver returns the driver the query is built for, or an empty string
+	// when the queryer of the QueryBuilder does not expose it.
+	Driver() string
 }
 
 type queryWriter struct {
@@ -172,7 +178,11 @@ type queryWriter struct {
 
 	i  int
 	vs []any
+
+	driver string
 }
+
+func (qw *queryWriter) Driver() string { return qw.driver }
 
 func (qw *queryWriter) RedeemVariable(v any) string {
 	qw.i++

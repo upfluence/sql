@@ -156,12 +156,12 @@ func (is InsertStatement) returnings() []*sql.Returning {
 	return res
 }
 
-func (is InsertStatement) buildQuery(qvs map[string]any) (string, []any, error) {
-	return is.buildQueries([]map[string]any{qvs}, qvs)
+func (is InsertStatement) buildQuery(driver string, qvs map[string]any) (string, []any, error) {
+	return is.buildQueries(driver, []map[string]any{qvs}, qvs)
 }
 
-func (is InsertStatement) buildQueries(vvs []map[string]any, qvs map[string]any) (string, []any, error) {
-	var qw queryWriter
+func (is InsertStatement) buildQueries(driver string, vvs []map[string]any, qvs map[string]any) (string, []any, error) {
+	qw := queryWriter{driver: driver}
 
 	if len(is.Fields) == 0 {
 		return "", nil, errNoMarkers
