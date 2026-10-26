@@ -15,11 +15,16 @@ import (
 
 const jsonbAddressKey = "address"
 
+type jsonbBoundEntity struct {
+	Type string `json:"type"`
+	ID   int64  `json:"id"`
+}
+
 func jsonbMigrator(db sql.DB) migration.Migrator {
-	up := "CREATE TABLE jsonb_rows(id INTEGER PRIMARY KEY, tags TEXT, data TEXT)"
+	up := "CREATE TABLE jsonb_rows(id INTEGER PRIMARY KEY, tags TEXT, data TEXT, entities TEXT)"
 
 	if db.Driver() == postgresDriver {
-		up = "CREATE TABLE jsonb_rows(id INTEGER PRIMARY KEY, tags JSONB, data JSONB)"
+		up = "CREATE TABLE jsonb_rows(id INTEGER PRIMARY KEY, tags JSONB, data JSONB, entities JSONB)"
 	}
 
 	return migration.NewMigrator(
@@ -35,47 +40,62 @@ func TestJSONBPredicateClause(t *testing.T) {
 		ctx := context.Background()
 
 		for _, row := range []struct {
-			id         int64
-			tags, data any
+			id                   int64
+			tags, data, entities any
 		}{
 			{
-				id:   1,
-				tags: `["a", "b"]`,
-				data: `{"status": "active", "tier": 2, "address": {"country": "FR"}, "labels": ["x", "y"]}`,
+				id:       1,
+				tags:     `["a", "b"]`,
+				data:     `{"status": "active", "tier": 2, "address": {"country": "FR"}, "labels": ["x", "y"]}`,
+				entities: `[{"type": "campaign", "id": 12}, {"type": "contribution", "id": 14}]`,
 			},
 			{
-				id:   2,
-				tags: `[1, 2.5]`,
-				data: `{"status": "inactive", "tier": 2.0, "address": {"country": "US"}}`,
+				id:       2,
+				tags:     `[1, 2.5]`,
+				data:     `{"status": "inactive", "tier": 2.0, "address": {"country": "US"}}`,
+				entities: `[{"type": "campaign", "id": 13}]`,
 			},
 			{
-				id:   3,
-				tags: `["1", true]`,
-				data: `{"status": "active", "tier": "2", "labels": "x"}`,
+				id:       3,
+				tags:     `["1", true]`,
+				data:     `{"status": "active", "tier": "2", "labels": "x"}`,
+				entities: `[{"type": "campaign", "id": 12, "extra": true}]`,
 			},
-			{id: 4, tags: `{"a": "a"}`, data: `["status"]`},
-			{id: 5, tags: `[]`, data: `{}`},
+			{
+				id:       4,
+				tags:     `{"a": "a"}`,
+				data:     `["status"]`,
+				entities: `{"type": "campaign", "id": 12}`,
+			},
+			{id: 5, tags: `[]`, data: `{}`, entities: `[]`},
 			{id: 6},
 			{
-				id:   7,
-				tags: `[["a"]]`,
-				data: `{"address": {"country": "FR", "city": "Paris"}, "labels": ["y", "x", "z"], "flags": true}`,
+				id:       7,
+				tags:     `[["a"]]`,
+				data:     `{"address": {"country": "FR", "city": "Paris"}, "labels": ["y", "x", "z"], "flags": true, "items": [{"sku": "x", "qty": 1}, {"sku": "y"}]}`,
+				entities: `[{"type": "contribution", "id": 12}, {"type": "campaign", "id": "12"}]`,
 			},
 		} {
 			_, err := db.Exec(
 				ctx,
-				"INSERT INTO jsonb_rows(id, tags, data) VALUES ($1, $2, $3)",
+				"INSERT INTO jsonb_rows(id, tags, data, entities) VALUES ($1, $2, $3, $4)",
 				row.id,
 				row.tags,
 				row.data,
+				row.entities,
 			)
 
 			require.NoError(t, err)
 		}
 
 		var (
-			tags = sqlbuilder.Column("tags")
-			data = sqlbuilder.Column("data")
+			tags     = sqlbuilder.Column("tags")
+			data     = sqlbuilder.Column("data")
+			entities = sqlbuilder.Column("entities")
+
+			campaign12     = jsonbBoundEntity{Type: "campaign", ID: 12}
+			campaign13     = jsonbBoundEntity{Type: "campaign", ID: 13}
+			contribution14 = jsonbBoundEntity{Type: "contribution", ID: 14}
 		)
 
 		for _, tt := range []struct {
@@ -183,6 +203,57 @@ func TestJSONBPredicateClause(t *testing.T) {
 					},
 				),
 				want: []int64{1},
+			},
+			{
+				name: "object contains array of objects",
+				haveClause: sqlbuilder.StaticJSONBObjectContains(
+					data,
+					map[string]any{"items": []any{map[string]any{"sku": "x"}}},
+				),
+				want: []int64{7},
+			},
+			{
+				name:       "contains all nested array",
+				haveClause: sqlbuilder.StaticJSONBArrayContainsAll(tags, []any{[]string{"a"}}),
+				want:       []int64{7},
+			},
+			{
+				name: "contains any object",
+				haveClause: sqlbuilder.StaticJSONBArrayContainsAny(
+					entities,
+					[]jsonbBoundEntity{campaign12},
+				),
+				want: []int64{1, 3},
+			},
+			{
+				name: "contains any objects",
+				haveClause: sqlbuilder.StaticJSONBArrayContainsAny(
+					entities,
+					[]jsonbBoundEntity{
+						campaign13,
+						contribution14,
+					},
+				),
+				want: []int64{1, 2},
+			},
+			{
+				name: "contains all objects",
+				haveClause: sqlbuilder.StaticJSONBArrayContainsAll(
+					entities,
+					[]jsonbBoundEntity{
+						campaign12,
+						contribution14,
+					},
+				),
+				want: []int64{1},
+			},
+			{
+				name: "contains all object",
+				haveClause: sqlbuilder.StaticJSONBArrayContainsAll(
+					entities,
+					[]jsonbBoundEntity{campaign12},
+				),
+				want: []int64{1, 3},
 			},
 		} {
 			t.Run(tt.name, func(t *testing.T) {
