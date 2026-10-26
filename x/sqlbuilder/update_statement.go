@@ -52,8 +52,8 @@ func writeUpdateClauses(fs []Marker, qw QueryWriter, vs map[string]any) error {
 	return nil
 }
 
-func (us UpdateStatement) buildQuery(vs map[string]any) (string, []any, error) {
-	var qw queryWriter
+func (us UpdateStatement) buildQuery(driver string, vs map[string]any) (string, []any, error) {
+	qw := queryWriter{driver: driver}
 
 	if len(us.Fields) == 0 {
 		return "", nil, errNoMarkers

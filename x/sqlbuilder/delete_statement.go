@@ -15,8 +15,8 @@ func (ds DeleteStatement) Clone() DeleteStatement {
 	}
 }
 
-func (ds DeleteStatement) buildQuery(vs map[string]any) (string, []any, error) {
-	var qw queryWriter
+func (ds DeleteStatement) buildQuery(driver string, vs map[string]any) (string, []any, error) {
+	qw := queryWriter{driver: driver}
 
 	fmt.Fprintf(&qw, "DELETE FROM %s WHERE ", ds.Table)
 

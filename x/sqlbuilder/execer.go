@@ -16,7 +16,7 @@ type execer struct {
 }
 
 func (e execer) Exec(ctx context.Context, qvs map[string]any) (sql.Result, error) {
-	stmt, vs, err := e.stmt.buildQuery(qvs)
+	stmt, vs, err := e.stmt.buildQuery(e.qb.driver(), qvs)
 
 	if err != nil {
 		return nil, err

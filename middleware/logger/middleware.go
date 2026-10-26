@@ -101,6 +101,8 @@ type tx struct {
 	tx sql.Tx
 }
 
+func (t *tx) Driver() string { return sql.DriverOf(t.tx) }
+
 func (t *tx) Commit() error {
 	var t0 = time.Now()
 
