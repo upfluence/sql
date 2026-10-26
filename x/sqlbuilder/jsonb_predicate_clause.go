@@ -24,28 +24,29 @@ const (
 )
 
 var (
-	errInvalidJSONBValue = errors.New("JSONB predicates only support strings and numbers")
+	errInvalidJSONBValue = errors.New("JSONB predicates do not support booleans and nulls")
 	errInvalidJSONBKey   = errors.New("SQLite does not support object keys holding a double quote")
 )
 
 // JSONBArrayContainsAny matches the rows whose column, a JSONB array, holds
-// at least one of the elements of the slice bound to the marker. The
-// elements have to be strings or numbers.
+// at least one of the elements of the slice bound to the marker. An object
+// or array element matches the elements containing it, as the @> operator
+// of PostgreSQL does. The elements can not hold booleans and nulls.
 func JSONBArrayContainsAny(m Marker) PredicateClause {
 	return &basicClause{m: m, fn: writeJSONBArrayContainsAny}
 }
 
 // JSONBArrayContainsAll matches the rows whose column, a JSONB array, holds
-// every element of the slice bound to the marker. The elements have to be
-// strings or numbers.
+// every element of the slice bound to the marker. An object or array element
+// matches the elements containing it, as the @> operator of PostgreSQL does.
+// The elements can not hold booleans and nulls.
 func JSONBArrayContainsAll(m Marker) PredicateClause {
 	return &basicClause{m: m, fn: writeJSONBArrayContainsAll}
 }
 
 // JSONBObjectContains matches the rows whose column, a JSONB object,
 // contains the object bound to the marker, as the @> operator of
-// PostgreSQL does. The object can only hold strings, numbers, objects and
-// arrays of strings and numbers.
+// PostgreSQL does. The object can not hold booleans and nulls.
 func JSONBObjectContains(m Marker) PredicateClause {
 	return &basicClause{m: m, fn: writeJSONBObjectContains}
 }
@@ -76,27 +77,22 @@ func writeJSONBArrayContainsAny(w QueryWriter, vv any, k string) error {
 	}
 
 	if w.Driver() == sqlite3Driver {
-		want, err := encodeJSONB(es)
+		sc := sqliteContains{w: w}
+
+		cs, err := sc.containsAny(k, es)
 
 		if err != nil {
 			return err
 		}
 
-		_, err = fmt.Fprintf(
-			w,
-			"(json_type(%s) = 'array' AND EXISTS (SELECT 1 FROM json_each(%s) "+
-				"AS jsonb_elem, json_each(%s) AS jsonb_want WHERE %s))",
-			k,
-			k,
-			w.RedeemVariable(want),
-			sqliteJSONBElementMatch,
-		)
+		_, err = fmt.Fprintf(w, "(json_type(%s) = 'array' AND %s)", k, cs)
 
 		return errors.WithStack(err)
 	}
 
 	// A disjunction of containments, unlike the ?| operator, matches
-	// numbers and can use both the jsonb_ops and jsonb_path_ops GIN indexes.
+	// numbers and objects and can use both the jsonb_ops and jsonb_path_ops
+	// GIN indexes.
 	cs := make([]string, len(es))
 
 	for i, e := range es {
@@ -121,19 +117,7 @@ func writeJSONBArrayContainsAll(w QueryWriter, vv any, k string) error {
 		return err
 	}
 
-	if w.Driver() == sqlite3Driver {
-		c, err := sqliteArrayContainsAll(w, k, "", es)
-
-		if err != nil {
-			return err
-		}
-
-		_, err = fmt.Fprintf(w, "(%s)", c)
-
-		return errors.WithStack(err)
-	}
-
-	return writePostgresContains(w, k, es)
+	return writeJSONBContains(w, k, es)
 }
 
 func writeJSONBObjectContains(w QueryWriter, vv any, k string) error {
@@ -143,27 +127,29 @@ func writeJSONBObjectContains(w QueryWriter, vv any, k string) error {
 		return err
 	}
 
-	obj, ok := d.(map[string]any)
-
-	if !ok {
+	if _, ok := d.(map[string]any); !ok {
 		return errors.Wrapf(errInvalidJSONBValue, "%T is not an object", vv)
 	}
 
-	if err := checkJSONBObject(obj); err != nil {
-		return err
-	}
+	return writeJSONBContains(w, k, d)
+}
 
+func writeJSONBContains(w QueryWriter, k string, want any) error {
 	if w.Driver() != sqlite3Driver {
-		return writePostgresContains(w, k, obj)
+		v, err := encodeJSONB(want)
+
+		if err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprintf(w, "%s @> %s::jsonb", k, w.RedeemVariable(v))
+
+		return errors.WithStack(err)
 	}
 
-	cs, err := sqliteObjectContains(
-		w,
-		k,
-		"$",
-		obj,
-		[]string{fmt.Sprintf("json_type(%s) = 'object'", k)},
-	)
+	sc := sqliteContains{w: w}
+
+	cs, err := sc.contains(k, "", want)
 
 	if err != nil {
 		return err
@@ -174,21 +160,55 @@ func writeJSONBObjectContains(w QueryWriter, vv any, k string) error {
 	return errors.WithStack(err)
 }
 
-func writePostgresContains(w QueryWriter, k string, v any) error {
-	want, err := encodeJSONB(v)
+// sqliteContains writes the SQLite conditions matching a JSON document
+// containing a wanted value, as the @> operator of PostgreSQL does.
+type sqliteContains struct {
+	w QueryWriter
 
-	if err != nil {
-		return err
-	}
-
-	_, err = fmt.Fprintf(w, "%s @> %s::jsonb", k, w.RedeemVariable(want))
-
-	return errors.WithStack(err)
+	// items is the number of aliases given to the iterations of the arrays
+	// holding objects or arrays, each one is unique so that the nested
+	// iterations never shadow each other.
+	items int
 }
 
-// sqliteObjectContains appends to cs the conditions matching when the JSON
-// object at path in k contains obj: one per leaf of obj.
-func sqliteObjectContains(w QueryWriter, k, path string, obj map[string]any, cs []string) ([]string, error) {
+// contains returns the conditions matching when the JSON value at path in
+// doc, or doc itself when path is empty, contains want.
+func (sc *sqliteContains) contains(doc, path string, want any) ([]string, error) {
+	switch want := want.(type) {
+	case map[string]any:
+		return sc.containsObject(doc, path, want)
+	case []any:
+		return sc.containsArray(doc, path, want)
+	}
+
+	if path == "" {
+		path = "$"
+	}
+
+	var (
+		typ   = sc.args(doc, path)
+		value = sc.args(doc, path)
+	)
+
+	return []string{
+		fmt.Sprintf(
+			"json_type(%s) IN ('integer', 'real', 'text') AND json_extract(%s) = %s",
+			typ,
+			value,
+			sc.w.RedeemVariable(sqliteScalar(want)),
+		),
+	}, nil
+}
+
+func (sc *sqliteContains) containsObject(doc, path string, obj map[string]any) ([]string, error) {
+	var cs []string
+
+	// The type of a non empty object below the root is checked by the
+	// conditions on its keys, which never match a value of another type.
+	if path == "" || len(obj) == 0 {
+		cs = append(cs, fmt.Sprintf("json_type(%s) = 'object'", sc.args(doc, path)))
+	}
+
 	keys := make([]string, 0, len(obj))
 
 	for key := range obj {
@@ -202,92 +222,172 @@ func sqliteObjectContains(w QueryWriter, k, path string, obj map[string]any, cs 
 			return nil, errors.Wrapf(errInvalidJSONBKey, "%q", key)
 		}
 
-		p := fmt.Sprintf(`%s."%s"`, path, key)
+		parent := path
 
-		switch v := obj[key].(type) {
-		case map[string]any:
-			if len(v) > 0 {
-				var err error
-
-				cs, err = sqliteObjectContains(w, k, p, v, cs)
-
-				if err != nil {
-					return nil, err
-				}
-
-				continue
-			}
-
-			cs = append(
-				cs,
-				fmt.Sprintf("json_type(%s, %s) = 'object'", k, w.RedeemVariable(p)),
-			)
-		case []any:
-			c, err := sqliteArrayContainsAll(w, k, p, v)
-
-			if err != nil {
-				return nil, err
-			}
-
-			cs = append(cs, c)
-		default:
-			var (
-				typ   = w.RedeemVariable(p)
-				value = w.RedeemVariable(p)
-			)
-
-			cs = append(
-				cs,
-				fmt.Sprintf(
-					"json_type(%s, %s) IN ('integer', 'real', 'text') AND "+
-						"json_extract(%s, %s) = %s",
-					k,
-					typ,
-					k,
-					value,
-					w.RedeemVariable(sqliteScalar(v)),
-				),
-			)
+		if parent == "" {
+			parent = "$"
 		}
+
+		kcs, err := sc.contains(doc, fmt.Sprintf(`%s."%s"`, parent, key), obj[key])
+
+		if err != nil {
+			return nil, err
+		}
+
+		cs = append(cs, kcs...)
 	}
 
 	return cs, nil
 }
 
-// sqliteArrayContainsAll returns the condition matching when the JSON array
-// at path in k, or k itself when path is empty, holds every element of es.
-// The column is iterated first so that its name is never resolved to one
-// of the columns of the iteration of the wanted values.
-func sqliteArrayContainsAll(w QueryWriter, k, path string, es []any) (string, error) {
-	want, err := encodeJSONB(es)
+// containsArray matches the scalars of es with a single iteration of the
+// array, counting the ones it holds, and every object or array of es with
+// an iteration of its own.
+func (sc *sqliteContains) containsArray(doc, path string, es []any) ([]string, error) {
+	cs := []string{fmt.Sprintf("json_type(%s) = 'array'", sc.args(doc, path))}
+
+	scalars, others := splitJSONBScalars(es)
+
+	if len(scalars) > 0 {
+		want, err := encodeJSONB(scalars)
+
+		if err != nil {
+			return nil, err
+		}
+
+		elem := sc.args(doc, path)
+
+		cs = append(
+			cs,
+			fmt.Sprintf(
+				"(SELECT count(DISTINCT jsonb_want.key) FROM json_each(%s) AS "+
+					"jsonb_elem, json_each(%s) AS jsonb_want WHERE %s) = %d",
+				elem,
+				sc.w.RedeemVariable(want),
+				sqliteJSONBElementMatch,
+				len(scalars),
+			),
+		)
+	}
+
+	for _, e := range others {
+		c, err := sc.existsItem(doc, path, e)
+
+		if err != nil {
+			return nil, err
+		}
+
+		cs = append(cs, c)
+	}
+
+	return cs, nil
+}
+
+// containsAny returns the condition matching when the JSON array doc holds
+// one of the elements of es.
+func (sc *sqliteContains) containsAny(doc string, es []any) (string, error) {
+	var (
+		cs []string
+
+		scalars, others = splitJSONBScalars(es)
+	)
+
+	if len(scalars) > 0 {
+		want, err := encodeJSONB(scalars)
+
+		if err != nil {
+			return "", err
+		}
+
+		cs = append(
+			cs,
+			fmt.Sprintf(
+				"EXISTS (SELECT 1 FROM json_each(%s) AS jsonb_elem, json_each(%s) "+
+					"AS jsonb_want WHERE %s)",
+				doc,
+				sc.w.RedeemVariable(want),
+				sqliteJSONBElementMatch,
+			),
+		)
+	}
+
+	for _, e := range others {
+		c, err := sc.existsItem(doc, "", e)
+
+		if err != nil {
+			return "", err
+		}
+
+		cs = append(cs, c)
+	}
+
+	if len(cs) == 1 {
+		return cs[0], nil
+	}
+
+	return "(" + strings.Join(cs, " OR ") + ")", nil
+}
+
+// existsItem returns the condition matching when the JSON array at path in
+// doc holds an element containing want, an object or an array.
+func (sc *sqliteContains) existsItem(doc, path string, want any) (string, error) {
+	sc.items++
+
+	var (
+		array = sc.args(doc, path)
+		alias = fmt.Sprintf("jsonb_item_%d", sc.items)
+		typ   = "array"
+	)
+
+	if _, ok := want.(map[string]any); ok {
+		typ = "object"
+	}
+
+	// json_each returns the strings of an array without their quotes, which
+	// the JSON functions reject as malformed: the other elements are only
+	// read as NULL, as the order the terms of a WHERE clause are evaluated
+	// in is not guaranteed.
+	cs, err := sc.contains(
+		fmt.Sprintf("(CASE WHEN %[1]s.type = '%[2]s' THEN %[1]s.value END)", alias, typ),
+		"",
+		want,
+	)
 
 	if err != nil {
 		return "", err
 	}
 
-	var (
-		typ  = sqliteJSONArgs(w, k, path)
-		elem = sqliteJSONArgs(w, k, path)
-	)
-
 	return fmt.Sprintf(
-		"json_type(%s) = 'array' AND (SELECT count(DISTINCT jsonb_want.key) "+
-			"FROM json_each(%s) AS jsonb_elem, json_each(%s) AS jsonb_want "+
-			"WHERE %s) = %d",
-		typ,
-		elem,
-		w.RedeemVariable(want),
-		sqliteJSONBElementMatch,
-		len(es),
+		"EXISTS (SELECT 1 FROM json_each(%s) AS %s WHERE %s)",
+		array,
+		alias,
+		strings.Join(cs, " AND "),
 	), nil
 }
 
-func sqliteJSONArgs(w QueryWriter, k, path string) string {
+// args returns the arguments of a JSON function reading the value at path
+// in doc, or doc itself when path is empty.
+func (sc *sqliteContains) args(doc, path string) string {
 	if path == "" {
-		return k
+		return doc
 	}
 
-	return k + ", " + w.RedeemVariable(path)
+	return doc + ", " + sc.w.RedeemVariable(path)
+}
+
+func splitJSONBScalars(es []any) ([]any, []any) {
+	var scalars, others []any
+
+	for _, e := range es {
+		switch e.(type) {
+		case map[string]any, []any:
+			others = append(others, e)
+		default:
+			scalars = append(scalars, e)
+		}
+	}
+
+	return scalars, others
 }
 
 // sqliteScalar converts a string or a JSON number to the value json_extract
@@ -308,6 +408,8 @@ func sqliteScalar(v any) any {
 	return f
 }
 
+// decodeJSONB returns the JSON representation of v, decoded with its
+// numbers as json.Number, after checking it holds no booleans and nulls.
 func decodeJSONB(v any) (any, error) {
 	buf, err := json.Marshal(v)
 
@@ -327,7 +429,11 @@ func decodeJSONB(v any) (any, error) {
 		return nil, errors.Wrap(err, "cant decode the JSONB value")
 	}
 
-	return res, nil
+	if res == nil {
+		return nil, nil
+	}
+
+	return res, checkJSONB(res)
 }
 
 func decodeJSONBArray(v any) ([]any, error) {
@@ -341,50 +447,35 @@ func decodeJSONBArray(v any) ([]any, error) {
 	case nil:
 		return []any{}, nil
 	case []any:
-		for _, e := range d {
-			if err := checkJSONBScalar(e); err != nil {
-				return nil, err
-			}
-		}
-
 		return d, nil
 	}
 
 	return nil, errors.Wrapf(errInvalidJSONBValue, "%T is not an array", v)
 }
 
-func checkJSONBScalar(v any) error {
-	switch v.(type) {
+func checkJSONB(v any) error {
+	switch v := v.(type) {
 	case string, json.Number:
+		return nil
+	case map[string]any:
+		for _, e := range v {
+			if err := checkJSONB(e); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	case []any:
+		for _, e := range v {
+			if err := checkJSONB(e); err != nil {
+				return err
+			}
+		}
+
 		return nil
 	}
 
 	return errors.Wrapf(errInvalidJSONBValue, "unexpected %T", v)
-}
-
-func checkJSONBObject(obj map[string]any) error {
-	for _, v := range obj {
-		var err error
-
-		switch v := v.(type) {
-		case map[string]any:
-			err = checkJSONBObject(v)
-		case []any:
-			for _, e := range v {
-				if err = checkJSONBScalar(e); err != nil {
-					break
-				}
-			}
-		default:
-			err = checkJSONBScalar(v)
-		}
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func encodeJSONB(v any) (string, error) {
