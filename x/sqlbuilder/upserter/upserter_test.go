@@ -294,6 +294,99 @@ func TestUpserterInsertValue(t *testing.T) {
 	})
 }
 
+func TestUpserterValueExpression(t *testing.T) {
+	sqltest.NewTestCase(
+		sqltest.WithMigratorFunc(
+			buildMigrator(
+				map[string]string{
+					"1_initial.up.sql":   "CREATE TABLE foo (x TEXT, y TEXT, z TEXT)",
+					"1_initial.down.sql": "DROP TABLE foo",
+					"2_initial.up.sql":   "CREATE UNIQUE INDEX foo_pk ON foo(x)",
+					"2_initial.down.sql": "DROP INDEX foo_pk",
+				},
+			),
+		),
+	).Run(t, func(t *testing.T, db sql.DB) {
+		const computed = "computed"
+
+		ctx := context.Background()
+		u := Upserter{DB: db}
+
+		readRow := func(t *testing.T) []string {
+			t.Helper()
+
+			var y, z string
+
+			err := db.QueryRow(
+				ctx,
+				"SELECT y, z FROM foo WHERE x = $1",
+				"foo",
+			).Scan(&y, &z)
+
+			require.NoError(t, err)
+
+			return []string{y, z}
+		}
+
+		staleRow := func(t *testing.T) {
+			t.Helper()
+
+			_, err := db.Exec(ctx, "UPDATE foo SET z = 'stale'")
+
+			require.NoError(t, err)
+		}
+
+		for _, tt := range []struct {
+			name string
+
+			haveQueryConstrained bool
+		}{
+			{name: "without key constraint"},
+			{name: "with key constraint", haveQueryConstrained: true},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				_, err := db.Exec(ctx, "DELETE FROM foo")
+
+				require.NoError(t, err)
+
+				e := u.PrepareUpsert(
+					UpsertStatement{
+						Table:       "foo",
+						QueryValues: []sqlbuilder.Marker{sqlbuilder.Column("x")},
+						SetValues: []sqlbuilder.Marker{
+							sqlbuilder.Column("y"),
+							sqlbuilder.ValueExpression(
+								sqlbuilder.Column("z"),
+								"'"+computed+"'",
+							),
+						},
+						QueryConstrained: tt.haveQueryConstrained,
+					},
+				)
+
+				_, err = e.Exec(ctx, map[string]any{"x": "foo", "y": "bar"})
+
+				require.NoError(t, err)
+				assert.Equal(t, []string{"bar", computed}, readRow(t))
+
+				staleRow(t)
+
+				_, err = e.Exec(ctx, map[string]any{"x": "foo", "y": "bar"})
+
+				require.NoError(t, err)
+				assert.Equal(t, []string{"bar", computed}, readRow(t))
+
+				staleRow(t)
+
+				_, err = e.Exec(ctx, map[string]any{"x": "foo", "y": "baz"})
+
+				require.NoError(t, err)
+				assert.Equal(t, []string{"baz", computed}, readRow(t))
+			})
+		}
+	})
+}
+
 func TestUpserterPredicateClause(t *testing.T) {
 	sqltest.NewTestCase(
 		sqltest.WithMigratorFunc(

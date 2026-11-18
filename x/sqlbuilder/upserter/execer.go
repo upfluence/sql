@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"slices"
 
 	"github.com/upfluence/errors"
 	"github.com/upfluence/sql"
@@ -25,6 +26,8 @@ type execer struct {
 	te txExecutor
 
 	returningMarker sqlbuilder.Marker
+
+	alwaysUpdate bool
 
 	qfs []string
 	sfs []string
@@ -215,19 +218,33 @@ func newQueryConstrainedExecer(q sql.Queryer, stmt Statement) sqlbuilder.Execer 
 // newTxExecer looks the row up and writes it accordingly within a
 // transaction, as the table holds no key constraint on the query values.
 func newTxExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
-	var selectClauses = []sqlbuilder.Marker{oneMarker}
+	var (
+		selectClauses = []sqlbuilder.Marker{oneMarker}
+		sfs           []string
 
-	for _, m := range stmt.SetValues {
-		selectClauses = append(selectClauses, &assertMarker{Marker: m})
+		// a value expression holds no value to compare the row with, so the
+		// row can never be found pristine and is updated whenever it exists
+		alwaysUpdate = slices.ContainsFunc(
+			stmt.SetValues,
+			sqlbuilder.IsValueExpression,
+		)
+	)
+
+	if !alwaysUpdate {
+		for _, m := range stmt.SetValues {
+			selectClauses = append(selectClauses, &assertMarker{Marker: m})
+			sfs = append(sfs, m.Binding())
+		}
 	}
 
 	var (
 		clauses = make([]sqlbuilder.PredicateClause, len(stmt.QueryValues))
 
 		e = execer{
-			te:  te,
-			qfs: make([]string, len(stmt.QueryValues)),
-			sfs: make([]string, len(stmt.SetValues)),
+			te:           te,
+			alwaysUpdate: alwaysUpdate,
+			qfs:          make([]string, len(stmt.QueryValues)),
+			sfs:          sfs,
 			ss: sqlbuilder.SelectStatement{
 				Table:         stmt.Table,
 				SelectClauses: selectClauses,
@@ -277,7 +294,6 @@ func newTxExecer(te txExecutor, stmt Statement) sqlbuilder.Execer {
 	}
 
 	for i, sv := range stmt.SetValues {
-		e.sfs[i] = sv.Binding()
 		e.is.Fields[len(stmt.QueryValues)+i] = sv
 	}
 
@@ -377,7 +393,7 @@ func (e *execer) execRow(ctx context.Context, q sql.Queryer, r rowArgs, vs map[s
 
 	switch {
 	case err == nil:
-		pristine := true
+		pristine := !e.alwaysUpdate
 
 		for _, sf := range e.sfs {
 			if val := r.existing[sf].(*sql.NullBool); !val.Bool {

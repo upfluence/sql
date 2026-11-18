@@ -29,7 +29,12 @@ type Statement struct {
 
 	QueryValues  []sqlbuilder.Marker
 	InsertValues []sqlbuilder.Marker
-	SetValues    []sqlbuilder.Marker
+
+	// SetValues are written on insert and on update. Without the key
+	// constraint, an existing row holding the same values is left untouched,
+	// unless one of them is a value expression, built with
+	// sqlbuilder.ValueExpression, which can not be compared with the row.
+	SetValues []sqlbuilder.Marker
 
 	Returning *sql.Returning
 
