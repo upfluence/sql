@@ -2,6 +2,7 @@ package sqlbuilder
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/upfluence/errors"
@@ -77,6 +78,44 @@ func (e excluded) WriteTo(qw QueryWriter, _ map[string]any) error {
 	_, err := fmt.Fprintf(qw, "EXCLUDED.%s", ColumnName(e.Marker))
 
 	return errors.Wrap(err, "cant write the excluded column")
+}
+
+// ValueExpression makes the marker write the given SQL expression as its value
+// instead of binding a variable, in the values of an INSERT as in the SET clause
+// of an UPDATE or of an ON CONFLICT DO UPDATE:
+//
+//	INSERT INTO foo(bar) VALUES (CURRENT_TIMESTAMP)
+//	UPDATE foo SET bar = CURRENT_TIMESTAMP
+//
+// No value has to be given for its binding.
+func ValueExpression(m Marker, exp string) Marker {
+	return valueExpression{Marker: m, exp: exp}
+}
+
+type valueExpression struct {
+	Marker
+
+	exp string
+}
+
+func (ve valueExpression) ColumnName() string { return ColumnName(ve.Marker) }
+
+func (ve valueExpression) Clone() Marker {
+	return valueExpression{Marker: ve.Marker.Clone(), exp: ve.exp}
+}
+
+func (ve valueExpression) WriteTo(qw QueryWriter, _ map[string]any) error {
+	_, err := io.WriteString(qw, ve.exp)
+
+	return errors.Wrap(err, "cant write the value expression")
+}
+
+// IsValueExpression reports whether the marker writes its value as a SQL
+// expression, built with ValueExpression, instead of binding a variable.
+func IsValueExpression(m Marker) bool {
+	_, ok := m.(valueExpression)
+
+	return ok
 }
 
 func cloneMarkers(ms []Marker) []Marker {

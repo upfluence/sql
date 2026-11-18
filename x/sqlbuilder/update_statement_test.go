@@ -38,6 +38,20 @@ func TestUpdateQuery(t *testing.T) {
 			args: []any{2, 1, "foo"},
 		},
 		{
+			name: "update with value expression",
+			us: UpdateStatement{
+				Table: "foo",
+				Fields: []Marker{
+					Column("biz"),
+					ValueExpression(Column("buz"), "CURRENT_TIMESTAMP"),
+				},
+				WhereClause: Eq(Column("bar")),
+			},
+			vs:   map[string]any{"biz": 2, "bar": "foo"},
+			stmt: "UPDATE foo SET biz = $1, buz = CURRENT_TIMESTAMP WHERE bar = $2",
+			args: []any{2, "foo"},
+		},
+		{
 			name: "error no markers",
 			us: UpdateStatement{
 				Table:       "foo",

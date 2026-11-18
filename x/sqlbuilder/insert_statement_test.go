@@ -105,6 +105,42 @@ func TestInsertQuery(t *testing.T) {
 			args: []any{1, 2, 3},
 		},
 		{
+			name: "with value expression",
+			is: InsertStatement{
+				Table: "foo",
+				Fields: []Marker{
+					Column("buz"),
+					ValueExpression(Column("bar"), "CURRENT_TIMESTAMP"),
+				},
+			},
+			vs:   map[string]any{"buz": 1},
+			stmt: "INSERT INTO foo(buz, bar) VALUES ($1, CURRENT_TIMESTAMP)",
+			args: []any{1},
+		},
+		{
+			name: "with on conflict update value expression",
+			is: InsertStatement{
+				Table: "foo",
+				Fields: []Marker{
+					Column("buz"),
+					Column("biz"),
+					ValueExpression(Column("bar"), "CURRENT_TIMESTAMP"),
+				},
+				OnConfict: &OnConflictClause{
+					Target: &OnConflictTarget{
+						Fields: []Marker{Column("buz")},
+					},
+					Action: Update{
+						Excluded(Column("biz")),
+						Excluded(ValueExpression(Column("bar"), "CURRENT_TIMESTAMP")),
+					},
+				},
+			},
+			vs:   map[string]any{"buz": 1, "biz": 2},
+			stmt: "INSERT INTO foo(buz, biz, bar) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (buz) DO UPDATE SET biz = EXCLUDED.biz, bar = CURRENT_TIMESTAMP",
+			args: []any{1, 2},
+		},
+		{
 			name: "with on conflict update and where",
 			is: InsertStatement{
 				Table:  "foo",
@@ -222,6 +258,22 @@ func TestInsertMultiQuery(t *testing.T) {
 			},
 			wantStmt: "INSERT INTO foo(biz) VALUES ($1), ($2)",
 			wantArgs: []any{1, 2, &sql.Returning{Field: "id"}},
+		},
+		{
+			name: "multiple rows with value expression",
+			haveStmt: InsertStatement{
+				Table: "foo",
+				Fields: []Marker{
+					Column("biz"),
+					ValueExpression(Column("buz"), "CURRENT_TIMESTAMP"),
+				},
+			},
+			haveVVs: []map[string]any{
+				{"biz": 1},
+				{"biz": 2},
+			},
+			wantStmt: "INSERT INTO foo(biz, buz) VALUES ($1, CURRENT_TIMESTAMP), ($2, CURRENT_TIMESTAMP)",
+			wantArgs: []any{1, 2},
 		},
 		{
 			name: "missing key in a row",

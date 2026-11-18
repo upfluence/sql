@@ -160,6 +160,22 @@ func (is InsertStatement) buildQuery(driver string, qvs map[string]any) (string,
 	return is.buildQueries(driver, []map[string]any{qvs}, qvs)
 }
 
+func writeInsertValue(qw QueryWriter, f Marker, vs map[string]any) error {
+	if ve, ok := f.(valueExpression); ok {
+		return ve.WriteTo(qw, vs)
+	}
+
+	v, ok := vs[f.Binding()]
+
+	if !ok {
+		return ErrMissingKey{Key: f.Binding()}
+	}
+
+	_, err := io.WriteString(qw, qw.RedeemVariable(v))
+
+	return errors.Wrap(err, "cant write the value")
+}
+
 func (is InsertStatement) buildQueries(driver string, vvs []map[string]any, qvs map[string]any) (string, []any, error) {
 	qw := queryWriter{driver: driver}
 
@@ -183,13 +199,9 @@ func (is InsertStatement) buildQueries(driver string, vvs []map[string]any, qvs 
 		qw.WriteRune('(')
 
 		for i, f := range is.Fields {
-			v, ok := lqvs[f.Binding()]
-
-			if !ok {
-				return "", nil, ErrMissingKey{Key: f.Binding()}
+			if err := writeInsertValue(&qw, f, lqvs); err != nil {
+				return "", nil, err
 			}
-
-			qw.WriteString(qw.RedeemVariable(v))
 
 			if i < len(is.Fields)-1 {
 				qw.WriteString(", ")
