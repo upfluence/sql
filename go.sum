@@ -19,6 +19,8 @@ github.com/upfluence/errors v0.2.19 h1:kaFGvVi7dHnUxuGvZ6zsW6lfDebC7sKlD11O9JPho
 github.com/upfluence/errors v0.2.19/go.mod h1:KWq2aU5NtEtuqkw1h0J5LfCUHi58cBnE2ipz2SlY4ig=
 github.com/upfluence/log v0.0.6 h1:cG+dq0CXTZTXGknzwZbQEW2QQH6KRjUu9rysdhmhBcA=
 github.com/upfluence/log v0.0.6/go.mod h1:pCbKPbgnoF5zqR9JsTgParTIEBvqXsIuaa8eoEVhdPA=
+github.com/upfluence/stats v0.2.1 h1:T3d7fQsL2rdthYqDTF6rRIXRUKtvM98hGRwNoonuots=
+github.com/upfluence/stats v0.2.1/go.mod h1:68ZOq0AWeoZlgdp9M50Vxbtxl6+HCtsMlAcSEQmSr4Y=
 golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.27.0 h1:wBqf8DvsY9Y/2P8gAfPDEYNuS30J4lPHJxXSb/nJZ+s=
 golang.org/x/sys v0.27.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
