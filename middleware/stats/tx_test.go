@@ -88,6 +88,14 @@ func TestTxCompletion(t *testing.T) {
 	}
 }
 
+func TestTxDriver(t *testing.T) {
+	db, _ := wrap(&static.DB{Tx: &static.Tx{}})
+	tx, err := db.BeginTx(context.Background(), sql.TxOptions{})
+
+	require.NoError(t, err)
+	assert.Equal(t, "sqltest", sql.DriverOf(tx))
+}
+
 func TestTxExec(t *testing.T) {
 	rawTx := &static.Tx{Queryer: static.Queryer{ExecResult: sql.StaticResult(42)}}
 	db, collector := wrap(&static.DB{Tx: rawTx})
