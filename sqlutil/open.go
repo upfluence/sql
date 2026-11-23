@@ -97,6 +97,14 @@ func WithStdDBCallback(fn func(*stdsql.DB)) DBOption {
 	}
 }
 
+// WithDBMiddleware wraps this database alone, before it is balanced with the
+// other databases. Use WithMiddleware to wrap the resulting database instead.
+func WithDBMiddleware(f sql.MiddlewareFactory) DBOption {
+	return func(i *dbInput) {
+		i.middlewares = append(i.middlewares, f)
+	}
+}
+
 func WithMaxIdleConns(v int) DBOption {
 	return func(i *dbInput) {
 		v := v
@@ -169,6 +177,7 @@ type dbInput struct {
 	maxIdleTime  *time.Duration
 
 	dbCallbacks []func(*stdsql.DB)
+	middlewares []sql.MiddlewareFactory
 }
 
 func (i *dbInput) prepareDB(db *stdsql.DB) {
@@ -206,6 +215,10 @@ func (i *dbInput) buildDB(p sqlparser.SQLParser) (sql.DB, error) {
 
 	if wfn, ok := driverWrappers[i.driver]; ok {
 		db = wfn(db, p)
+	}
+
+	for _, m := range i.middlewares {
+		db = m.Wrap(db)
 	}
 
 	return db, nil
